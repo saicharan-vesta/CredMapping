@@ -45,7 +45,7 @@ jobs:
           gcloud run deploy credmapping-staging \
             --image ${{ env.IMAGE_NAME }}:${{ github.sha }} \
             --region us-central1 \
-            --no-allow-unauthenticated \
+            --allow-unauthenticated \
             --project ${{ secrets.GCP_PROJECT_ID }}
 
       # --- DEPLOY TO PROD ---
