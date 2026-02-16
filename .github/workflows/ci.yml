@@ -3,7 +3,7 @@ name: CI
 on:
   pull_request:
   push:
-    branches: [ master, qa-local, test-prod ] 
+    branches: [ master, qa-local, test-prod ]
 
 jobs:
   build:
@@ -12,6 +12,8 @@ jobs:
     defaults:
       run:
         working-directory: credmapping
+    env:
+      SKIP_ENV_VALIDATION: "true"
     steps:
       - uses: actions/checkout@v4
 
@@ -23,8 +25,5 @@ jobs:
         with:
           version: 9
 
-      - name: Install
-        run: pnpm install --frozen-lockfile
-
-      - name: Build
-        run: pnpm build
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
