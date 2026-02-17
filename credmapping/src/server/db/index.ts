@@ -1,3 +1,4 @@
+import { sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 
@@ -21,3 +22,22 @@ const conn = globalForDb.conn ?? postgres(databaseUrl);
 if (env.NODE_ENV !== "production") globalForDb.conn = conn;
 
 export const db = drizzle(conn, { schema });
+
+type DbTx = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+export const withRls = async <T>(params: {
+  jwtClaims: {
+    sub: string;
+    email: string;
+    role?: string;
+  };
+  run: (tx: DbTx) => Promise<T>;
+}): Promise<T> => {
+  return db.transaction(async (tx) => {
+    await tx.execute(
+      sql`select set_config('request.jwt.claims', ${JSON.stringify(params.jwtClaims)}, true)`,
+    );
+
+    return params.run(tx);
+  });
+};
