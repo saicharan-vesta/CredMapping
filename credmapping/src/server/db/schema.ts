@@ -11,6 +11,15 @@ import {
   uuid,
 } from "drizzle-orm/pg-core";
 
+export const users = pgTable("users", {
+  id: uuid("id").primaryKey().notNull(),
+  email: text("email").notNull(),
+  role: text("role").default("user").notNull(),
+  agentId: uuid("agent_id").references(() => agents.id),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
 export const agents = pgTable("agents", {
   id: uuid("id").defaultRandom().primaryKey(),
   firstName: text("first_name").notNull(),
