@@ -18,14 +18,13 @@ export const initialOrRenewalEnum = pgEnum("initial_or_renewal", ["initial", "re
 export const users = pgTable("users", {
   id: uuid("id").primaryKey().notNull(),
   email: text("email").notNull(),
-  role: text("role").default("user").notNull(),
-  agentId: uuid("agent_id").references(() => agents.id),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
 export const agents = pgTable("agents", {
   id: uuid("id").defaultRandom().primaryKey(),
+  userId: uuid("user_id").references(() => users.id),
   firstName: text("first_name").notNull(),
   lastName: text("last_name").notNull(),
   email: text("email").notNull().unique(),
@@ -50,7 +49,6 @@ export const facilities = pgTable("facilities", {
   id: uuid("id").defaultRandom().primaryKey(),
   name: text("name"),
   state: text("state"),
-  type: text("type"),
   proxy: text("proxy"),
   active: boolean("active").default(true),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
