@@ -5,15 +5,17 @@ import {
   date,
   integer,
   jsonb,
+  pgEnum,
+  pgPolicy,
   pgTable,
   text,
   timestamp,
   uuid,
-  pgEnum
 } from "drizzle-orm/pg-core";
 
 export const relatedTypeEnum = pgEnum("facility_or_provider", ["facility", "provider"]);
 export const initialOrRenewalEnum = pgEnum("initial_or_renewal", ["initial", "renewal"]);
+export const agentRoleEnum = pgEnum("agent_role", ["user", "admin", "superadmin"]);
 
 export const users = pgTable("users", {
   id: uuid("id").primaryKey().notNull(),
@@ -29,7 +31,7 @@ export const agents = pgTable("agents", {
   lastName: text("last_name").notNull(),
   email: text("email").notNull().unique(),
   team: text("team"),
-  role: text("role"), 
+  role: agentRoleEnum("role").default("user").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
 });
@@ -80,24 +82,45 @@ export const workflowPhases = pgTable("workflow_phases", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
 });
 
-export const commLogs = pgTable("comm_logs", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  relatedType: relatedTypeEnum("related_type"),
-  relatedId: uuid("related_id"),
-  kind: text("kind"),
-  subject: text("subject"),
-  status: text("status"),
-  requestedAt: date("requested_at"),
-  lastFollowupAt: date("last_followup_at"),
-  nextFollowupAt: date("next_followup_at"),
-  receivedAt: date("received_at"),
-  notes: text("notes"),
-  createdBy: uuid("created_by").references(() => agents.id),
-  lastUpdatedBy: uuid("last_updated_by").references(() => agents.id),
-  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
-  zohoTicketId: text("zoho_ticket_id"),
-  updatedAt: timestamp("updated_at", { withTimezone: true }),
-});
+export const commLogs = pgTable(
+  "comm_logs",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    relatedType: relatedTypeEnum("related_type"),
+    relatedId: uuid("related_id"),
+    kind: text("kind"),
+    subject: text("subject"),
+    status: text("status"),
+    requestedAt: date("requested_at"),
+    lastFollowupAt: date("last_followup_at"),
+    nextFollowupAt: date("next_followup_at"),
+    receivedAt: date("received_at"),
+    notes: text("notes"),
+    createdBy: uuid("created_by").references(() => agents.id),
+    lastUpdatedBy: uuid("last_updated_by").references(() => agents.id),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+    zohoTicketId: text("zoho_ticket_id"),
+    updatedAt: timestamp("updated_at", { withTimezone: true }),
+  },
+  () => [
+    pgPolicy("comm_logs_admin_mutations", {
+      for: "all",
+      to: "authenticated",
+      using: sql`exists(
+        select 1
+        from agents
+        where lower(agents.email) = lower(auth.email())
+          and agents.role in ('admin', 'superadmin')
+      )`,
+      withCheck: sql`exists(
+        select 1
+        from agents
+        where lower(agents.email) = lower(auth.email())
+          and agents.role in ('admin', 'superadmin')
+      )`,
+    }),
+  ],
+).enableRLS();
 
 export const configEnums = pgTable("config_enums", {
   key: text("key").primaryKey(),
