@@ -35,8 +35,8 @@ jobs:
       # We pass the SHA as a substitution variable (_TAG) to Cloud Build
       - name: Submit Build
         run: |
-          gcloud builds submit --config=cloudbuild.yaml \
-            --substitutions=_TAG=${{ github.sha }},_IMAGE_NAME=${{ env.IMAGE_NAME }}
+          gcloud builds submit credmapping --config=credmapping/cloudbuild.yaml \
+            --substitutions=_TAG=${{ github.sha }},_IMAGE_NAME=${{ env.IMAGE_NAME }},_SUPABASE_URL=${{ secrets.NEXT_PUBLIC_SUPABASE_URL }},_SUPABASE_ANON_KEY=${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
 
       # --- DEPLOY TO PRE-PROD ---
       - name: Deploy to Staging (Private)
@@ -45,7 +45,7 @@ jobs:
           gcloud run deploy credmapping-staging \
             --image ${{ env.IMAGE_NAME }}:${{ github.sha }} \
             --region us-central1 \
-            --no-allow-unauthenticated \
+            --allow-unauthenticated \
             --project ${{ secrets.GCP_PROJECT_ID }}
 
       # --- DEPLOY TO PROD ---
