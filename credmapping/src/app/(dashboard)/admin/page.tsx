@@ -109,7 +109,13 @@ function AssignAgentDialog({ onSuccess }: { onSuccess: () => void }) {
     setSearch("");
   };
 
-  const selectedUser = users?.find((u) => u.id === selectedUserId);
+  const normalizedUsers =
+    users?.filter(
+      (u): u is { id: string; email: string } =>
+        typeof u.id === "string" && typeof u.email === "string",
+    ) ?? [];
+
+  const selectedUser = normalizedUsers.find((u) => u.id === selectedUserId);
 
   const handleAssign = () => {
     if (!selectedUserId || !selectedUser) return;
@@ -167,12 +173,12 @@ function AssignAgentDialog({ onSuccess }: { onSuccess: () => void }) {
                 <div className="flex items-center justify-center p-4">
                   <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
                 </div>
-              ) : !users?.length ? (
+              ) : !normalizedUsers.length ? (
                 <p className="p-3 text-sm text-muted-foreground text-center">
                   No unassigned users found.
                 </p>
               ) : (
-                users.map((user) => (
+                normalizedUsers.map((user) => (
                   <button
                     key={user.id}
                     type="button"

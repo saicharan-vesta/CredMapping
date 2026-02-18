@@ -1,106 +1,158 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { 
-  LayoutDashboard, 
-  Users, 
-  Building2, 
-  Workflow, 
-  ChevronLeft, 
-  ChevronRight,
+import {
+  Building2,
+  LayoutDashboard,
+  Settings2,
   ShieldCheck,
+  Users,
+  Workflow,
 } from "lucide-react";
 import { Button } from "~/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "~/components/ui/dropdown-menu";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from "~/components/ui/tooltip";
 
-// Current sidebar items I could think of with role requirement assumptions. We can easily add more and change the roles as needed. For now, I just have it so if you're an admin you see everything, and if you're a user you see everything except workflows and admin panel. We can also easily change it so that the admin panel is only visible to a "super admin" role or something like that.
 const sidebarItems = [
-  { name: "Overview", href: "/dashboard", icon: LayoutDashboard, roles: ["user", "admin", "superadmin"] },
-  { name: "Agents", href: "/agents", icon: Users, roles: ["user", "admin", "superadmin"] },
-  { name: "Facilities", href: "/facilities", icon: Building2, roles: ["user", "admin", "superadmin"] },
-  { name: "Workflows", href: "/workflows", icon: Workflow, roles: ["admin", "superadmin"] },
-  { name: "Admin Panel", href: "/admin", icon: ShieldCheck, roles: ["superadmin"] },
+  {
+    name: "Overview",
+    href: "/dashboard",
+    icon: LayoutDashboard,
+    roles: ["user", "admin", "superadmin"],
+  },
+  {
+    name: "Agents",
+    href: "/agents",
+    icon: Users,
+    roles: ["user", "admin", "superadmin"],
+  },
+  {
+    name: "Facilities",
+    href: "/facilities",
+    icon: Building2,
+    roles: ["user", "admin", "superadmin"],
+  },
+  {
+    name: "Workflows",
+    href: "/workflows",
+    icon: Workflow,
+    roles: ["admin", "superadmin"],
+  },
+  {
+    name: "Admin Panel",
+    href: "/admin",
+    icon: ShieldCheck,
+    roles: ["superadmin"],
+  },
 ];
+
+const SIDEBAR_MODE_KEY = "sidebar-mode";
+type SidebarMode = "expanded" | "collapsed" | "hover";
 
 interface SidebarProps {
   userRole: string;
 }
 
 export function Sidebar({ userRole }: SidebarProps) {
-  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [sidebarMode, setSidebarMode] = useState<SidebarMode>("expanded");
+  const [isHoveringSidebar, setIsHoveringSidebar] = useState(false);
   const [mounted, setMounted] = useState(false);
   const pathname = usePathname();
 
   useEffect(() => {
-    const saved = localStorage.getItem("sidebar-collapsed");
-if (saved) setIsCollapsed(JSON.parse(saved) as boolean);
+    const savedMode = localStorage.getItem(SIDEBAR_MODE_KEY) as
+      | SidebarMode
+      | null;
+
+    if (savedMode === "expanded" || savedMode === "collapsed" || savedMode === "hover") {
+      setSidebarMode(savedMode);
+    } else {
+      // Backward compatibility with previous boolean key.
+      const legacyCollapsed = localStorage.getItem("sidebar-collapsed");
+      if (legacyCollapsed !== null) {
+        setSidebarMode(JSON.parse(legacyCollapsed) ? "collapsed" : "expanded");
+      }
+    }
+
     setMounted(true);
   }, []);
 
-  const toggleSidebar = () => {
-    setIsCollapsed((prev) => {
-      const nextState = !prev;
-      localStorage.setItem("sidebar-collapsed", JSON.stringify(nextState));
-      return nextState;
-    });
+  const setMode = (mode: SidebarMode) => {
+    setSidebarMode(mode);
+    localStorage.setItem(SIDEBAR_MODE_KEY, mode);
   };
 
-  const filteredNav = sidebarItems.filter(item => item.roles.includes(userRole));
+  const isCollapsed =
+    sidebarMode === "collapsed" ||
+    (sidebarMode === "hover" && !isHoveringSidebar);
+
+  const filteredNav = sidebarItems.filter((item) => item.roles.includes(userRole));
 
   return (
-    <aside 
+    <aside
+      onMouseEnter={() => setIsHoveringSidebar(true)}
+      onMouseLeave={() => setIsHoveringSidebar(false)}
       className={`relative flex flex-col border-r bg-muted/30 transition-all duration-300 ease-in-out ${
         isCollapsed ? "w-16" : "w-64"
       }`}
     >
-      {/* Logo */}
-      <div className="flex h-16 items-center px-4 border-b overflow-hidden">
-        <div className="flex items-center gap-3 font-semibold text-primary">
-          <div className="h-8 w-8 rounded-md bg-primary flex items-center justify-center text-primary-foreground shrink-0">
+      <div className="h-16 overflow-hidden border-b px-4">
+        <div className="flex h-full items-center gap-3 font-semibold text-primary">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary text-primary-foreground">
             C+
           </div>
-          <span className={`truncate tracking-tight text-lg transition-all duration-200 ${
-            isCollapsed ? "opacity-0 w-0 invisible" : "opacity-100 w-auto visible"
-          }`}>
+          <span
+            className={`truncate text-lg tracking-tight transition-all duration-200 ${
+              isCollapsed ? "invisible w-0 opacity-0" : "visible w-auto opacity-100"
+            }`}
+          >
             CredMapping+
           </span>
         </div>
       </div>
 
-      {/* Sidebar Items */}
-      <nav className="flex-1 space-y-2 p-2 mt-4 overflow-hidden">
+      <nav className="mt-4 flex-1 space-y-2 overflow-hidden p-2">
         {!mounted ? (
-          // Skeleton while loading, can be replaced with better skeleton later if wanted
           <div className="space-y-2 px-2">
             {[1, 2, 3, 4].map((i) => (
-              <div key={i} className="h-9 w-full bg-muted/60 animate-pulse rounded-md" />
+              <div key={i} className="h-9 w-full animate-pulse rounded-md bg-muted/60" />
             ))}
           </div>
         ) : (
           filteredNav.map((item) => {
             const isActive = pathname === item.href;
-            
+
             return (
               <Tooltip key={`${item.href}-${isCollapsed}`} delayDuration={0}>
                 <TooltipTrigger asChild>
                   <Link
                     href={item.href}
                     className={`flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-all ${
-                      isActive 
-                        ? "bg-secondary text-secondary-foreground" 
+                      isActive
+                        ? "bg-secondary text-secondary-foreground"
                         : "text-muted-foreground hover:bg-secondary/50 hover:text-foreground"
                     }`}
                   >
                     <item.icon className="h-5 w-5 shrink-0" />
-                    <span className={`whitespace-nowrap transition-all duration-200 ${
-                      isCollapsed ? "opacity-0 w-0 invisible" : "opacity-100 w-auto visible"
-                    }`}>
+                    <span
+                      className={`whitespace-nowrap transition-all duration-200 ${
+                        isCollapsed ? "invisible w-0 opacity-0" : "visible w-auto opacity-100"
+                      }`}
+                    >
                       {item.name}
                     </span>
                   </Link>
@@ -116,26 +168,44 @@ if (saved) setIsCollapsed(JSON.parse(saved) as boolean);
         )}
       </nav>
 
-      {/* Collapse Button */}
-      <div className="border-t p-2 overflow-hidden">
-        <Button
-          variant="ghost"
-          className={`w-full justify-start gap-3 transition-all ${isCollapsed ? "px-0 justify-center" : ""}`}
-          onClick={toggleSidebar}
-        >
-          {isCollapsed ? (
-            <ChevronRight className="h-5 w-5" />
-          ) : (
-            <>
-              <ChevronLeft className="h-5 w-5 shrink-0" />
-              <span className={`transition-all duration-200 ${
-                isCollapsed ? "opacity-0 w-0 invisible" : "opacity-100 w-auto visible delay-200"
-              }`}>
-                Collapse sidebar
-              </span>
-            </>
-          )}
-        </Button>
+      <div className="overflow-hidden border-t p-2">
+        <DropdownMenu>
+          <Tooltip delayDuration={0}>
+            <TooltipTrigger asChild>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  className={`w-full gap-3 transition-all ${
+                    isCollapsed ? "justify-center px-0" : "justify-start"
+                  }`}
+                >
+                  <Settings2 className="h-5 w-5 shrink-0" />
+                  <span
+                    className={`whitespace-nowrap transition-all duration-200 ${
+                      isCollapsed ? "invisible w-0 opacity-0" : "visible w-auto opacity-100"
+                    }`}
+                  >
+                    Sidebar control
+                  </span>
+                </Button>
+              </DropdownMenuTrigger>
+            </TooltipTrigger>
+            {isCollapsed && <TooltipContent side="right">Sidebar control</TooltipContent>}
+          </Tooltip>
+
+          <DropdownMenuContent side="top" align="start" className="w-52">
+            <DropdownMenuLabel>Sidebar control</DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <DropdownMenuRadioGroup
+              value={sidebarMode}
+              onValueChange={(value) => setMode(value as SidebarMode)}
+            >
+              <DropdownMenuRadioItem value="expanded">Expanded</DropdownMenuRadioItem>
+              <DropdownMenuRadioItem value="collapsed">Collapsed</DropdownMenuRadioItem>
+              <DropdownMenuRadioItem value="hover">Expand on hover</DropdownMenuRadioItem>
+            </DropdownMenuRadioGroup>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
     </aside>
   );
