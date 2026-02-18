@@ -64,14 +64,17 @@ const sidebarItems = [
 ];
 
 const SIDEBAR_MODE_KEY = "sidebar-mode";
+const SIDEBAR_MODE_COOKIE = "sidebar-mode";
+const SIDEBAR_MODE_COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 365;
 type SidebarMode = "expanded" | "collapsed" | "hover";
 
 interface SidebarProps {
   userRole: string;
+  initialSidebarMode: SidebarMode;
 }
 
-export function Sidebar({ userRole }: SidebarProps) {
-  const [sidebarMode, setSidebarMode] = useState<SidebarMode>("expanded");
+export function Sidebar({ userRole, initialSidebarMode }: SidebarProps) {
+  const [sidebarMode, setSidebarMode] = useState<SidebarMode>(initialSidebarMode);
   const [isHoveringSidebar, setIsHoveringSidebar] = useState(false);
   const [mounted, setMounted] = useState(false);
   const pathname = usePathname();
@@ -97,6 +100,7 @@ export function Sidebar({ userRole }: SidebarProps) {
   const setMode = (mode: SidebarMode) => {
     setSidebarMode(mode);
     localStorage.setItem(SIDEBAR_MODE_KEY, mode);
+    document.cookie = `${SIDEBAR_MODE_COOKIE}=${mode}; path=/; max-age=${SIDEBAR_MODE_COOKIE_MAX_AGE_SECONDS}`;
   };
 
   const isCollapsed =
