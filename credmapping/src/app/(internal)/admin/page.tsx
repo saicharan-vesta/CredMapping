@@ -28,13 +28,14 @@ import {
 import {
   Dialog,
   DialogClose,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
   DialogTrigger,
 } from "~/components/ui/dialog";
+import {
+  ModalContent,
+  ModalFooter,
+  ModalHeader,
+  ModalTitle,
+} from "~/components/ui/app-modal";
 import {
   Select,
   SelectContent,
@@ -145,13 +146,10 @@ function AssignAgentDialog({ onSuccess }: { onSuccess: () => void }) {
         </Button>
       </DialogTrigger>
 
-      <DialogContent className="sm:max-w-lg">
-        <DialogHeader>
-          <DialogTitle>Assign Agent from User Pool</DialogTitle>
-          <DialogDescription>
-            Select a user, fill in their details, and assign a permission level.
-          </DialogDescription>
-        </DialogHeader>
+      <ModalContent>
+        <ModalHeader>
+          <ModalTitle>Assign Agent from User Pool</ModalTitle>
+        </ModalHeader>
 
         <div className="space-y-4 py-2">
           {/* Search users */}
@@ -269,7 +267,7 @@ function AssignAgentDialog({ onSuccess }: { onSuccess: () => void }) {
           )}
         </div>
 
-        <DialogFooter>
+        <ModalFooter>
           <DialogClose asChild>
             <Button variant="outline">Cancel</Button>
           </DialogClose>
@@ -284,8 +282,8 @@ function AssignAgentDialog({ onSuccess }: { onSuccess: () => void }) {
             )}
             Assign Agent
           </Button>
-        </DialogFooter>
-      </DialogContent>
+        </ModalFooter>
+      </ModalContent>
     </Dialog>
   );
 }
@@ -321,16 +319,17 @@ function ChangeRoleDialog({
         </Button>
       </DialogTrigger>
 
-      <DialogContent className="sm:max-w-sm">
-        <DialogHeader>
-          <DialogTitle>Change Role</DialogTitle>
-          <DialogDescription>
-            Update permissions for{" "}
-            <span className="font-medium">
-              {agent.firstName} {agent.lastName}
-            </span>
-          </DialogDescription>
-        </DialogHeader>
+      <ModalContent className="sm:max-w-sm">
+        <ModalHeader>
+          <ModalTitle>Change Role</ModalTitle>
+        </ModalHeader>
+
+        <p className="text-sm text-muted-foreground">
+          Update permissions for{" "}
+          <span className="font-medium">
+            {agent.firstName} {agent.lastName}
+          </span>
+        </p>
 
         <div className="py-4">
           <Select
@@ -348,7 +347,7 @@ function ChangeRoleDialog({
           </Select>
         </div>
 
-        <DialogFooter>
+        <ModalFooter>
           <DialogClose asChild>
             <Button variant="outline">Cancel</Button>
           </DialogClose>
@@ -366,8 +365,8 @@ function ChangeRoleDialog({
             )}
             Save
           </Button>
-        </DialogFooter>
-      </DialogContent>
+        </ModalFooter>
+      </ModalContent>
     </Dialog>
   );
 }
@@ -402,19 +401,20 @@ function RemoveAgentDialog({
         </Button>
       </DialogTrigger>
 
-      <DialogContent className="sm:max-w-sm">
-        <DialogHeader>
-          <DialogTitle>Remove Agent</DialogTitle>
-          <DialogDescription>
-            Are you sure you want to remove{" "}
-            <span className="font-medium">
-              {agent.firstName} {agent.lastName}
-            </span>{" "}
-            from the agent pool? This action cannot be undone.
-          </DialogDescription>
-        </DialogHeader>
+      <ModalContent className="sm:max-w-sm">
+        <ModalHeader>
+          <ModalTitle>Remove Agent</ModalTitle>
+        </ModalHeader>
 
-        <DialogFooter>
+        <p className="text-sm text-muted-foreground">
+          Are you sure you want to remove{" "}
+          <span className="font-medium">
+            {agent.firstName} {agent.lastName}
+          </span>{" "}
+          from the agent pool? This action cannot be undone.
+        </p>
+
+        <ModalFooter>
           <DialogClose asChild>
             <Button variant="outline">Cancel</Button>
           </DialogClose>
@@ -428,8 +428,8 @@ function RemoveAgentDialog({
             )}
             Remove
           </Button>
-        </DialogFooter>
-      </DialogContent>
+        </ModalFooter>
+      </ModalContent>
     </Dialog>
   );
 }
