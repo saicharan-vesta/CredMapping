@@ -1,4 +1,5 @@
 import { desc, inArray } from "drizzle-orm";
+import { Mail, Phone } from "lucide-react";
 import { Badge } from "~/components/ui/badge";
 import { VirtualScrollContainer } from "~/components/ui/virtual-scroll-container";
 import { db } from "~/server/db";
@@ -29,6 +30,55 @@ const formatProviderName = (provider: {
   if (!fullName) return "Unnamed Provider";
 
   return provider.degree ? `${fullName}, ${provider.degree}` : fullName;
+};
+
+const sanitizePhoneForHref = (value: string) => value.replace(/[^\d+]/g, "");
+
+const getPrivilegeTierTone = (privilegeTier: string | null) => {
+  const normalizedTier = privilegeTier?.toLowerCase() ?? "";
+
+  if (normalizedTier.includes("in progress")) {
+    return "border-l-4 border-l-blue-500";
+  }
+
+  if (normalizedTier.includes("temp")) {
+    return "border-l-4 border-l-amber-500";
+  }
+
+  if (normalizedTier.includes("full")) {
+    return "border-l-4 border-l-emerald-500";
+  }
+
+  if (normalizedTier.includes("inactive")) {
+    return "border-l-4 border-l-zinc-500";
+  }
+
+  return "";
+};
+
+const getLicenseExpirationTone = (value: Date | string | null) => {
+  if (!value) {
+    return "";
+  }
+
+  const expirationDate = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(expirationDate.getTime())) {
+    return "";
+  }
+
+  const now = new Date();
+  const daysUntilExpiration =
+    (expirationDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24);
+
+  if (daysUntilExpiration < 0) {
+    return "rounded-sm border border-red-500/70 bg-red-500/10 px-2 py-0.5 text-red-200";
+  }
+
+  if (daysUntilExpiration <= 90) {
+    return "rounded-sm border border-amber-500/70 bg-amber-500/10 px-2 py-0.5 text-amber-100";
+  }
+
+  return "rounded-sm border border-emerald-500/70 bg-emerald-500/10 px-2 py-0.5 text-emerald-100";
 };
 
 export default async function ProvidersPage() {
@@ -150,17 +200,47 @@ export default async function ProvidersPage() {
               const providerLicenses = licensesByProvider.get(provider.id) ?? [];
               const providerPrivileges = privilegesByProvider.get(provider.id) ?? [];
               const providerCredentials = credentialsByProvider.get(provider.id) ?? [];
+              const privilegeTierTone = getPrivilegeTierTone(
+                providerPrivileges[0]?.privilegeTier ?? null,
+              );
+              const hasEmail = Boolean(provider.email);
+              const hasPhone = Boolean(provider.phone);
+              const phoneHref = provider.phone ? sanitizePhoneForHref(provider.phone) : "";
 
               return (
-                <section key={provider.id} className="rounded-lg border bg-card">
+                <section key={provider.id} className={`rounded-lg border bg-card ${privilegeTierTone}`}>
                   <div className="flex flex-wrap items-start justify-between gap-3 border-b p-4">
                     <div>
                       <h2 className="text-lg font-semibold">{formatProviderName(provider)}</h2>
                       <p className="text-xs text-muted-foreground">Provider profile</p>
                     </div>
-                    <div className="text-right text-sm text-muted-foreground">
-                      <p>{provider.email ?? "No email"}</p>
-                      <p>{provider.phone ?? "No phone"}</p>
+                    <div className="space-y-2 text-right text-sm text-muted-foreground">
+                      <div className="flex items-center justify-end gap-2">
+                        {hasEmail ? (
+                          <a
+                            className="text-foreground underline-offset-4 transition hover:underline"
+                            href={`mailto:${provider.email}`}
+                          >
+                            {provider.email}
+                          </a>
+                        ) : (
+                          <p>No email</p>
+                        )}
+                        <Mail className="size-4 text-muted-foreground" />
+                      </div>
+                      <div className="flex items-center justify-end gap-2">
+                        {hasPhone && phoneHref ? (
+                          <a
+                            className="text-foreground underline-offset-4 transition hover:underline"
+                            href={`tel:${phoneHref}`}
+                          >
+                            {provider.phone}
+                          </a>
+                        ) : (
+                          <p>No phone</p>
+                        )}
+                        <Phone className="size-4 text-muted-foreground" />
+                      </div>
                     </div>
                   </div>
 
@@ -204,7 +284,11 @@ export default async function ProvidersPage() {
                                   <td className="py-1 pr-3">{license.state ?? "—"}</td>
                                   <td className="py-1 pr-3">{license.status ?? "—"}</td>
                                   <td className="py-1 pr-3">{formatDate(license.issuedAt)}</td>
-                                  <td className="py-1 pr-3">{formatDate(license.expiresAt)}</td>
+                                  <td className="py-1 pr-3">
+                                    <span className={getLicenseExpirationTone(license.expiresAt)}>
+                                      {formatDate(license.expiresAt)}
+                                    </span>
+                                  </td>
                                 </tr>
                               ))}
                             </tbody>
