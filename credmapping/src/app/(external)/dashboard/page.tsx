@@ -4,12 +4,12 @@ export default function DashboardPage() {
     <div className="space-y-4">
       <h1 className="text-2xl font-bold">Dashboard Overview</h1>
       <p className="text-muted-foreground">
-        Welcome to CredMapping+. Select a tab from the sidebar to manage your agents or facilities.
+        Welcome to CredMapping+. Select a tab from the sidebar to manage your providers and facilities.
       </p>
 
       <div className="grid gap-4 md:grid-cols-3">
         <div className="rounded-xl border bg-card p-6 shadow-sm">
-          <div className="text-sm font-medium text-muted-foreground">Total Agents</div>
+          <div className="text-sm font-medium text-muted-foreground">Total Providers</div>
           <div className="text-2xl font-bold">128</div>
         </div>
         <div className="rounded-xl border bg-card p-6 shadow-sm">

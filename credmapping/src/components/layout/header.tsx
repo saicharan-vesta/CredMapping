@@ -21,8 +21,8 @@ import { type User as UserType } from "@supabase/supabase-js";
 import { useTransition } from "react";
 
 const routeLabels: Record<string, string> = {
-  agents: "Management",
   facilities: "Management",
+  providers: "Management",
   workflows: "System",
   "agent-management": "System",
 };

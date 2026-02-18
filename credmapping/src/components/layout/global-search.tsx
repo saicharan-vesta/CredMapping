@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { Search, Users, Building2, LayoutDashboard, Clock } from "lucide-react";
+import { Search, Building2, LayoutDashboard, Clock, BriefcaseMedical } from "lucide-react";
 import {
   Command,
   CommandEmpty,
@@ -90,9 +90,9 @@ export function GlobalSearch() {
                   <LayoutDashboard className="mr-2 h-4 w-4" />
                   <span>Overview</span>
                 </CommandItem>
-                <CommandItem onSelect={() => navigateTo("Agents", "/agents")}>
-                  <Users className="mr-2 h-4 w-4" />
-                  <span>Agents</span>
+                <CommandItem onSelect={() => navigateTo("Providers", "/providers")}>
+                  <BriefcaseMedical className="mr-2 h-4 w-4" />
+                  <span>Providers</span>
                 </CommandItem>
                 <CommandItem onSelect={() => navigateTo("Facilities", "/facilities")}>
                   <Building2 className="mr-2 h-4 w-4" />

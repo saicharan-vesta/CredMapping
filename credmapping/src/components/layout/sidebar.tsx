@@ -10,7 +10,6 @@ import {
   LayoutDashboard,
   Settings2,
   ShieldCheck,
-  Users,
   Workflow,
 } from "lucide-react";
 import { Button } from "~/components/ui/button";
@@ -35,12 +34,6 @@ const sidebarItems = [
     name: "Overview",
     href: "/dashboard",
     icon: LayoutDashboard,
-    roles: ["user", "admin", "superadmin"],
-  },
-  {
-    name: "Agents",
-    href: "/agents",
-    icon: Users,
     roles: ["user", "admin", "superadmin"],
   },
   {
