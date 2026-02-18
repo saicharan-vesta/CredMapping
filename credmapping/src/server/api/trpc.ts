@@ -68,13 +68,13 @@ export const createTRPCContext = async (opts: { headers: Headers }) => {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const isAllowedUser = !!user && isAllowedEmail(user.email);
-  const normalizedEmail = user?.email?.toLowerCase();
+  const authenticatedUser = user && isAllowedEmail(user.email) ? user : null;
+  const normalizedEmail = authenticatedUser?.email?.toLowerCase();
 
-  const [agent] = isAllowedUser && normalizedEmail && user
+  const [agent] = authenticatedUser && normalizedEmail
     ? await withRls({
         jwtClaims: {
-          sub: user.id,
+          sub: authenticatedUser.id,
           email: normalizedEmail,
           role: "authenticated",
         },
@@ -89,8 +89,8 @@ export const createTRPCContext = async (opts: { headers: Headers }) => {
 
   return {
     db,
-    user: isAllowedUser ? user : null,
-    appRole: isAllowedUser
+    user: authenticatedUser,
+    appRole: authenticatedUser
       ? getAppRole({
           agentRole: agent?.role,
         })
