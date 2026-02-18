@@ -1,6 +1,7 @@
 import { SignInButton } from "~/components/auth-buttons";
 import { createClient } from "~/utils/supabase/server";
 import { redirect } from "next/navigation";
+import Image from "next/image";
 
 const errorMessages: Record<string, string> = {
   domain_not_allowed:
@@ -29,9 +30,7 @@ export default async function Home(props: {
       <section className="flex w-full max-w-sm flex-col items-center space-y-12">
         <div className="flex flex-col items-center gap-6">
           <div className="flex items-center gap-4">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary text-xl font-bold text-primary-foreground shadow-sm">
-              C+
-            </div>
+            <Image src="/logo.png" alt="CredMapping+ logo" width={32} height={32} priority />
             <h1 className="text-4xl font-bold tracking-tight">CredMapping+</h1>
           </div>
         </div>

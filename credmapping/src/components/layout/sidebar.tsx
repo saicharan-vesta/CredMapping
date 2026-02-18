@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import {
   BriefcaseMedical,
@@ -121,9 +122,7 @@ export function Sidebar({ userRole }: SidebarProps) {
     >
       <div className="h-16 overflow-hidden border-b px-4">
         <div className="flex h-full items-center gap-3 font-semibold text-primary">
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary text-primary-foreground">
-            C+
-          </div>
+          <Image src="/logo.png" alt="CredMapping+ logo" width={32} height={32} />
           <span
             className={`truncate text-lg tracking-tight transition-all duration-200 ${
               isCollapsed ? "invisible w-0 opacity-0" : "visible w-auto opacity-100"
