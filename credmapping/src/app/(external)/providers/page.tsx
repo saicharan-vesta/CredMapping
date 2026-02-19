@@ -1,4 +1,4 @@
-import { desc, inArray } from "drizzle-orm";
+import { desc, ilike, inArray, or, sql } from "drizzle-orm";
 import { Mail, Phone } from "lucide-react";
 import { Badge } from "~/components/ui/badge";
 import { VirtualScrollContainer } from "~/components/ui/virtual-scroll-container";
@@ -81,10 +81,29 @@ const getLicenseExpirationTone = (value: Date | string | null) => {
   return "rounded-sm border border-emerald-500/70 bg-emerald-500/10 px-2 py-0.5 text-emerald-100";
 };
 
-export default async function ProvidersPage() {
+export default async function ProvidersPage(props: {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const searchParams = await props.searchParams;
+  const rawSearch = searchParams?.search;
+  const search = typeof rawSearch === "string" ? rawSearch.trim() : "";
+  const hasSearch = search.length >= 2;
+
   const providerRows = await db
     .select()
     .from(providers)
+    .where(
+      hasSearch
+        ? or(
+            ilike(providers.firstName, `%${search}%`),
+            ilike(providers.middleName, `%${search}%`),
+            ilike(providers.lastName, `%${search}%`),
+            ilike(providers.email, `%${search}%`),
+            ilike(providers.notes, `%${search}%`),
+            sql`concat_ws(' ' , ${providers.firstName}, ${providers.middleName}, ${providers.lastName}) ilike ${`%${search}%`}`
+          )
+        : undefined,
+    )
     .orderBy(desc(providers.updatedAt), desc(providers.createdAt))
     .limit(100);
 
@@ -151,6 +170,11 @@ export default async function ProvidersPage() {
         <p className="text-sm text-muted-foreground">
           Unified provider records with direct access to licenses, Vesta privileges, and PFC status.
         </p>
+        {hasSearch && (
+          <p className="text-xs text-muted-foreground">
+            Filtered by search: <span className="font-medium text-foreground">{search}</span>
+          </p>
+        )}
       </div>
 
       <div className="grid gap-4 md:grid-cols-4">
