@@ -231,7 +231,7 @@ export const providerStateLicenses = pgTable("provider_state_licenses", {
   priority: text("priority"),
   initialOrRenewal: initialOrRenewalEnum("initial_or_renewal"),
   expiresAt: date("expires_at"),
-  renewalDate: date("renewal_date"),
+  startsAt: date("starts_at"),
   number: text("number"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }),
