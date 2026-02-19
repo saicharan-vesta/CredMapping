@@ -381,7 +381,7 @@ export default async function ProvidersPage(props: {
           </label>
         </div>
 
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <button className="h-9 rounded-md border px-3 text-sm font-medium" type="submit">
             Apply
           </button>

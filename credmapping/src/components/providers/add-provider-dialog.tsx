@@ -88,8 +88,8 @@ export function AddProviderDialog() {
       }}
     >
       <DialogTrigger asChild>
-        <Button className="gap-2" size="sm">
-          <Plus className="h-4 w-4" />
+        <Button className="gap-2 h-8.5" size="sm">
+          <Plus className="h-6 w-4" />
           Add Provider
         </Button>
       </DialogTrigger>
