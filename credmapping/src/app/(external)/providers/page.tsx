@@ -3,6 +3,7 @@ import { Mail, Phone } from "lucide-react";
 import { AddProviderDialog } from "~/components/providers/add-provider-dialog";
 import { ProvidersAutoAdvance } from "~/components/providers-auto-advance";
 import { Badge } from "~/components/ui/badge";
+import { Button } from "~/components/ui/button";
 import { VirtualScrollContainer } from "~/components/ui/virtual-scroll-container";
 import { getAppRole } from "~/server/auth/domain";
 import { db } from "~/server/db";
@@ -385,12 +386,12 @@ export default async function ProvidersPage(props: {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <button className="h-9 rounded-md border px-3 text-sm font-medium" type="submit">
+          <Button type="submit" variant="outline">
             Apply
-          </button>
-          <a className="h-9 rounded-md border px-3 py-2 text-sm font-medium" href="/providers">
-            Reset
-          </a>
+          </Button>
+          <Button asChild variant="outline">
+            <a href="/providers">Reset</a>
+          </Button>
           {isSuperAdmin ? <AddProviderDialog /> : null}
         </div>
       </form>
