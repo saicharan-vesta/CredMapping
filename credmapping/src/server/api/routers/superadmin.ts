@@ -6,7 +6,7 @@ import {
   createTRPCRouter,
   superAdminProcedure,
 } from "~/server/api/trpc";
-import { agents, authUsers } from "~/server/db/schema";
+import { agents, authUsers, providers } from "~/server/db/schema";
 
 export const superadminRouter = createTRPCRouter({
   /**
@@ -201,5 +201,37 @@ export const superadminRouter = createTRPCRouter({
       }
 
       return { success: true };
+    }),
+
+  /**
+   * Create a provider record.
+   */
+  createProvider: superAdminProcedure
+    .input(
+      z.object({
+        firstName: z.string().trim().min(1, "First name is required"),
+        middleName: z.string().trim().optional(),
+        lastName: z.string().trim().min(1, "Last name is required"),
+        degree: z.string().trim().optional(),
+        email: z.string().trim().email().optional(),
+        phone: z.string().trim().optional(),
+        notes: z.string().trim().optional(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const [newProvider] = await ctx.db
+        .insert(providers)
+        .values({
+          firstName: input.firstName,
+          middleName: input.middleName ?? null,
+          lastName: input.lastName,
+          degree: input.degree ?? null,
+          email: input.email?.toLowerCase() ?? null,
+          phone: input.phone ?? null,
+          notes: input.notes ?? null,
+        })
+        .returning();
+
+      return newProvider;
     }),
 });

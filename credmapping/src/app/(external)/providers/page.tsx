@@ -1,15 +1,19 @@
 import { desc, eq, ilike, inArray, or, sql } from "drizzle-orm";
 import { Mail, Phone } from "lucide-react";
+import { AddProviderDialog } from "~/components/providers/add-provider-dialog";
 import { ProvidersAutoAdvance } from "~/components/providers-auto-advance";
 import { Badge } from "~/components/ui/badge";
 import { VirtualScrollContainer } from "~/components/ui/virtual-scroll-container";
+import { getAppRole } from "~/server/auth/domain";
 import { db } from "~/server/db";
 import {
+  agents,
   providerFacilityCredentials,
   providers,
   providerVestaPrivileges,
   stateLicenses,
 } from "~/server/db/schema";
+import { createClient } from "~/utils/supabase/server";
 
 const formatDate = (value: Date | string | null) => {
   if (!value) return "—";
@@ -81,6 +85,21 @@ const getLicenseExpirationTone = (value: Date | string | null) => {
 export default async function ProvidersPage(props: {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const agentRoleRow = user
+    ? await db
+        .select({ role: agents.role })
+        .from(agents)
+        .where(eq(agents.userId, user.id))
+        .limit(1)
+    : [];
+
+  const isSuperAdmin = getAppRole({ agentRole: agentRoleRow[0]?.role }) === "superadmin";
+
   const searchParams = await props.searchParams;
   const rawSearch = searchParams?.search;
   const search = typeof rawSearch === "string" ? rawSearch.trim() : "";
@@ -296,7 +315,6 @@ export default async function ProvidersPage(props: {
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-6 overflow-hidden">
-      
       <div className="grid gap-4 md:grid-cols-4">
         <div className="bg-card rounded-lg border p-4">
           <p className="text-muted-foreground text-xs uppercase">Provider records</p>
@@ -363,13 +381,14 @@ export default async function ProvidersPage(props: {
           </label>
         </div>
 
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <button className="h-9 rounded-md border px-3 text-sm font-medium" type="submit">
             Apply
           </button>
           <a className="h-9 rounded-md border px-3 py-2 text-sm font-medium" href="/providers">
             Reset
           </a>
+          {isSuperAdmin ? <AddProviderDialog /> : null}
         </div>
       </form>
 
