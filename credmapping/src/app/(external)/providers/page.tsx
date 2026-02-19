@@ -295,7 +295,7 @@ export default async function ProvidersPage(props: {
   };
 
   return (
-    <div className="space-y-6 pb-6">
+    <div className="flex h-full min-h-0 flex-col gap-6 overflow-hidden">
       
       <div className="grid gap-4 md:grid-cols-4">
         <div className="bg-card rounded-lg border p-4">
@@ -396,7 +396,8 @@ export default async function ProvidersPage(props: {
         </div>
       ) : (
         <VirtualScrollContainer
-          heightClassName="h-[65vh]"
+          className="min-h-0 flex-1"
+          heightClassName="h-full"
           viewportClassName="providers-scroll-viewport"
         >
           <div className="space-y-4 p-4">
