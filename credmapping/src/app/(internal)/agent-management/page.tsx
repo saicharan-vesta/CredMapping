@@ -492,18 +492,7 @@ export default function SuperAdminPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between border-b pb-4">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight flex items-center gap-2">
-            <ShieldCheck className="h-6 w-6 text-primary" />
-            Agent Management
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            Assign agents from the user pool and manage their permissions.
-          </p>
-        </div>
-
+      <div className="flex items-center justify-end">
         <AssignAgentDialog onSuccess={refetch} />
       </div>
 

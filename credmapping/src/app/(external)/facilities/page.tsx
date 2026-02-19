@@ -30,18 +30,6 @@ export default async function FacilitiesPage(props: {
 
   return (
     <div className="space-y-6">
-      <div className="space-y-2 border-b pb-4">
-        <h1 className="text-2xl font-bold">Facilities</h1>
-        <p className="text-sm text-muted-foreground">
-          Browse facility records available to your account permissions.
-        </p>
-        {hasSearch && (
-          <p className="text-xs text-muted-foreground">
-            Filtered by search: <span className="font-medium text-foreground">{search}</span>
-          </p>
-        )}
-      </div>
-
       {facilityRows.length === 0 ? (
         <div className="rounded-lg border border-dashed p-8 text-sm text-muted-foreground">
           No facilities found.

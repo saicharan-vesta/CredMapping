@@ -296,19 +296,7 @@ export default async function ProvidersPage(props: {
 
   return (
     <div className="space-y-6 pb-6">
-      <div className="space-y-2 border-b pb-4">
-        <h1 className="text-2xl font-semibold tracking-tight">Providers</h1>
-        <p className="text-muted-foreground text-sm">
-          Unified provider records with direct access to licenses, Vesta privileges, and
-          PFC status.
-        </p>
-        {hasSearch && (
-          <p className="text-muted-foreground text-xs">
-            Filtered by search: <span className="text-foreground font-medium">{search}</span>
-          </p>
-        )}
-      </div>
-
+      
       <div className="grid gap-4 md:grid-cols-4">
         <div className="bg-card rounded-lg border p-4">
           <p className="text-muted-foreground text-xs uppercase">Provider records</p>
@@ -408,7 +396,7 @@ export default async function ProvidersPage(props: {
         </div>
       ) : (
         <VirtualScrollContainer
-          heightClassName="h-[53vh]"
+          heightClassName="h-[65vh]"
           viewportClassName="providers-scroll-viewport"
         >
           <div className="space-y-4 p-4">
