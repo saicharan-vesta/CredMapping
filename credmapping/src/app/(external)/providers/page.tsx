@@ -46,6 +46,10 @@ type ProviderSort =
   | "expired_privs_desc"
   | "expired_privs_asc";
 
+type PrivilegeTier = NonNullable<
+  (typeof providerVestaPrivileges.$inferSelect)["privilegeTier"]
+>;
+
 const isProviderSort = (value: string): value is ProviderSort =>
   ["name_asc", "name_desc", "expired_privs_desc", "expired_privs_asc"].includes(
     value,
@@ -137,8 +141,8 @@ export default async function ProvidersPage(props: {
     .where(sql`${providerVestaPrivileges.privilegeTier} is not null`);
 
   const statusOptions = statusRows
-    .map((row) => row.privilegeTier?.trim())
-    .filter((status): status is string => Boolean(status))
+    .map((row) => row.privilegeTier)
+    .filter((status): status is PrivilegeTier => Boolean(status))
     .sort((a, b) => a.localeCompare(b));
 
   const doctorStatusFilter =
