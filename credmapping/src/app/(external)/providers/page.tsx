@@ -548,7 +548,7 @@ export default async function ProvidersPage(props: {
                                     <tr key={license.id} className="border-t align-top">
                                       <td className="py-1 pr-3">{license.state ?? "—"}</td>
                                       <td className="py-1 pr-3">{license.status ?? "—"}</td>
-                                      <td className="py-1 pr-3">{formatDate(license.renewalDate)}</td>
+                                      <td className="py-1 pr-3">{formatDate(license.startsAt)}</td>
                                       <td className="py-1 pr-3">
                                         <span className={getLicenseExpirationTone(license.expiresAt)}>
                                           {formatDate(license.expiresAt)}
@@ -577,7 +577,7 @@ export default async function ProvidersPage(props: {
                                         <tr key={license.id} className="border-t align-top">
                                           <td className="py-1 pr-3">{license.state ?? "—"}</td>
                                           <td className="py-1 pr-3">{license.status ?? "—"}</td>
-                                          <td className="py-1 pr-3">{formatDate(license.renewalDate)}</td>
+                                          <td className="py-1 pr-3">{formatDate(license.startsAt)}</td>
                                           <td className="py-1 pr-3">
                                             <span className={getLicenseExpirationTone(license.expiresAt)}>
                                               {formatDate(license.expiresAt)}
