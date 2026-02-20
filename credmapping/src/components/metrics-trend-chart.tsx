@@ -92,7 +92,7 @@ const aggregatePoints = (points: TrendPoint[], mode: ViewMode): AggregatedPoint[
   // with different time windows for readability.
   const latestDate = validPoints.reduce(
     (latest, entry) => (entry.date.getTime() > latest.getTime() ? entry.date : latest),
-    validPoints[0].date,
+    validPoints[0]!.date,
   );
 
   const rangeStart =

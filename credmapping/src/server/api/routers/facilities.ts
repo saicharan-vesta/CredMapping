@@ -65,7 +65,6 @@ export const facilitiesRouter = createTRPCRouter({
             state: facilities.state,
             proxy: facilities.proxy,
             status: facilities.status,
-            active: facilities.active,
             email: facilities.email,
             address: facilities.address,
             createdAt: facilities.createdAt,

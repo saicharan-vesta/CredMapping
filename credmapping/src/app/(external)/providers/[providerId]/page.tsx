@@ -193,9 +193,14 @@ export default async function ProviderProfilePage({
 
     if (!workflowId || !credentialId || !phaseName || !startDate || !dueDate) return;
 
-    const workflow = await db.query.workflowPhases.findFirst({
-      where: and(eq(workflowPhases.id, workflowId), eq(workflowPhases.relatedId, credentialId)),
-    });
+    const [workflow] = await db
+      .select({
+        id: workflowPhases.id,
+        workflowType: workflowPhases.workflowType,
+      })
+      .from(workflowPhases)
+      .where(and(eq(workflowPhases.id, workflowId), eq(workflowPhases.relatedId, credentialId)))
+      .limit(1);
 
     if (workflow?.workflowType !== "pfc") return;
 

@@ -226,7 +226,6 @@ export const superadminRouter = createTRPCRouter({
           proxy: input.proxy ?? null,
           tatSla: input.tatSla ?? null,
           status: "Active",
-          active: true,
         })
         .returning();
 
