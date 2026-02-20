@@ -2,6 +2,7 @@ import { and, desc, eq, ilike, inArray, or, sql } from "drizzle-orm";
 import { Mail, Phone } from "lucide-react";
 import { AddProviderDialog } from "~/components/providers/add-provider-dialog";
 import { ProvidersAutoAdvance } from "~/components/providers-auto-advance";
+import { MetricsTrendChart } from "~/components/metrics-trend-chart";
 import { Button } from "~/components/ui/button";
 import { VirtualScrollContainer } from "~/components/ui/virtual-scroll-container";
 import { getAppRole } from "~/server/auth/domain";
@@ -173,32 +174,57 @@ export default async function ProvidersPage(props: {
           : inArray(providers.id, filteredProviderIds)
         : sql`false`;
 
-  const [
-    totalProvidersRow,
-    totalLicensesRow,
-    totalPrivilegesRow,
-    totalCredentialsRow,
-  ] = await Promise.all([
+  const [totalProvidersRow, providerCreatedRows, credentialCreatedRows, workflowIncidentRows] =
+    await Promise.all([
+      db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(providers)
+        .where(providerFilterWhere),
     db
-      .select({ count: sql<number>`count(*)::int` })
+      .select({ createdAt: providers.createdAt })
       .from(providers)
       .where(providerFilterWhere),
     db
-      .select({ count: sql<number>`count(*)::int` })
-      .from(providerStateLicenses)
-      .innerJoin(providers, eq(providerStateLicenses.providerId, providers.id))
-      .where(providerFilterWhere),
-    db
-      .select({ count: sql<number>`count(*)::int` })
-      .from(providerVestaPrivileges)
-      .innerJoin(providers, eq(providerVestaPrivileges.providerId, providers.id))
-      .where(providerFilterWhere),
-    db
-      .select({ count: sql<number>`count(*)::int` })
+      .select({ createdAt: providerFacilityCredentials.createdAt })
       .from(providerFacilityCredentials)
       .innerJoin(providers, eq(providerFacilityCredentials.providerId, providers.id))
       .where(providerFilterWhere),
+    db
+      .select({ createdAt: workflowPhases.createdAt })
+      .from(workflowPhases)
+      .innerJoin(
+        providerFacilityCredentials,
+        and(
+          eq(workflowPhases.relatedId, providerFacilityCredentials.id),
+          eq(workflowPhases.workflowType, "pfc"),
+        ),
+      )
+      .innerJoin(providers, eq(providerFacilityCredentials.providerId, providers.id))
+      .where(providerFilterWhere),
   ]);
+
+  const providerTimeline = new Map<string, { primary: number; secondary: number; tertiary: number }>();
+
+  const addToTimeline = (
+    dateValue: Date | string | null,
+    metric: "primary" | "secondary" | "tertiary",
+  ) => {
+    if (!dateValue) return;
+    const date = dateValue instanceof Date ? dateValue : new Date(dateValue);
+    if (Number.isNaN(date.getTime())) return;
+    const key = date.toISOString().slice(0, 10);
+    const current = providerTimeline.get(key) ?? { primary: 0, secondary: 0, tertiary: 0 };
+    current[metric] += 1;
+    providerTimeline.set(key, current);
+  };
+
+  for (const row of providerCreatedRows) addToTimeline(row.createdAt, "primary");
+  for (const row of credentialCreatedRows) addToTimeline(row.createdAt, "secondary");
+  for (const row of workflowIncidentRows) addToTimeline(row.createdAt, "tertiary");
+
+  const providerTrendPoints = Array.from(providerTimeline.entries())
+    .sort((a, b) => a[0].localeCompare(b[0]))
+    .map(([date, values]) => ({ date, ...values }));
 
   const totalProviders = totalProvidersRow[0]?.count ?? 0;
   const visibleLimit = Math.min(requestedLimit, Math.max(totalProviders, pageSize));
@@ -341,24 +367,15 @@ export default async function ProvidersPage(props: {
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-6 overflow-hidden">
-      <div className="grid gap-4 md:grid-cols-4">
-        <div className="bg-card rounded-lg border p-4">
-          <p className="text-muted-foreground text-xs uppercase">Provider records</p>
-          <p className="mt-2 text-2xl font-semibold">{totalProviders}</p>
-        </div>
-        <div className="bg-card rounded-lg border p-4">
-          <p className="text-muted-foreground text-xs uppercase">State licenses</p>
-          <p className="mt-2 text-2xl font-semibold">{totalLicensesRow[0]?.count ?? 0}</p>
-        </div>
-        <div className="bg-card rounded-lg border p-4">
-          <p className="text-muted-foreground text-xs uppercase">Vesta privilege records</p>
-          <p className="mt-2 text-2xl font-semibold">{totalPrivilegesRow[0]?.count ?? 0}</p>
-        </div>
-        <div className="bg-card rounded-lg border p-4">
-          <p className="text-muted-foreground text-xs uppercase">PFC records</p>
-          <p className="mt-2 text-2xl font-semibold">{totalCredentialsRow[0]?.count ?? 0}</p>
-        </div>
-      </div>
+      <MetricsTrendChart
+        labels={{
+          primary: "New providers",
+          secondary: "New PFC records",
+          tertiary: "Related incidents",
+        }}
+        points={providerTrendPoints}
+        title="Provider onboarding velocity"
+      />
 
       <form
         className="bg-card flex flex-col gap-3 rounded-lg border p-4 lg:flex-row lg:items-end"

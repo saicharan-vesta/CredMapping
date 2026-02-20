@@ -1,6 +1,7 @@
 import { and, count, desc, eq, ilike, inArray, not, or, sql } from "drizzle-orm";
 import { Mail, Phone } from "lucide-react";
 import { AddFacilityDialog } from "~/components/facilities/add-facility-dialog";
+import { MetricsTrendChart } from "~/components/metrics-trend-chart";
 import { ProvidersAutoAdvance } from "~/components/providers-auto-advance";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
@@ -86,19 +87,39 @@ export default async function FacilitiesPage(props: {
     ? Math.max(pageSize, Number.parseInt(rawLimit, 10) || pageSize)
     : pageSize;
 
-  const [
-    totalFacilitiesRow,
-    activeFacilitiesRow,
-    totalContactsRow,
-    totalCredentialLinksRow,
-    contactFacilityRows,
-  ] = await Promise.all([
-    db.select({ count: count() }).from(facilities),
-    db.select({ count: count() }).from(facilities).where(eq(facilities.status, "Active")),
-    db.select({ count: count() }).from(facilityContacts),
-    db.select({ count: count() }).from(providerFacilityCredentials),
-    db.selectDistinct({ facilityId: facilityContacts.facilityId }).from(facilityContacts),
+  const [contactFacilityRows, facilityCreatedRows, credentialCreatedRows, workflowIncidentRows] =
+    await Promise.all([
+      db.selectDistinct({ facilityId: facilityContacts.facilityId }).from(facilityContacts),
+    db.select({ createdAt: facilities.createdAt }).from(facilities),
+    db.select({ createdAt: providerFacilityCredentials.createdAt }).from(providerFacilityCredentials),
+    db
+      .select({ createdAt: workflowPhases.createdAt })
+      .from(workflowPhases)
+      .where(eq(workflowPhases.workflowType, "pfc")),
   ]);
+
+  const facilityTimeline = new Map<string, { primary: number; secondary: number; tertiary: number }>();
+
+  const addToTimeline = (
+    dateValue: Date | string | null,
+    metric: "primary" | "secondary" | "tertiary",
+  ) => {
+    if (!dateValue) return;
+    const date = dateValue instanceof Date ? dateValue : new Date(dateValue);
+    if (Number.isNaN(date.getTime())) return;
+    const key = date.toISOString().slice(0, 10);
+    const current = facilityTimeline.get(key) ?? { primary: 0, secondary: 0, tertiary: 0 };
+    current[metric] += 1;
+    facilityTimeline.set(key, current);
+  };
+
+  for (const row of facilityCreatedRows) addToTimeline(row.createdAt, "primary");
+  for (const row of credentialCreatedRows) addToTimeline(row.createdAt, "secondary");
+  for (const row of workflowIncidentRows) addToTimeline(row.createdAt, "tertiary");
+
+  const facilityTrendPoints = Array.from(facilityTimeline.entries())
+    .sort((a, b) => a[0].localeCompare(b[0]))
+    .map(([date, values]) => ({ date, ...values }));
 
   const facilitiesWithContacts = contactFacilityRows
     .map((row) => row.facilityId)
@@ -265,24 +286,15 @@ export default async function FacilitiesPage(props: {
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-6 overflow-hidden">
-      <div className="grid gap-4 md:grid-cols-4">
-        <div className="bg-card rounded-lg border p-4">
-          <p className="text-muted-foreground text-xs uppercase">Facility records</p>
-          <p className="mt-2 text-2xl font-semibold">{totalFacilitiesRow[0]?.count ?? 0}</p>
-        </div>
-        <div className="bg-card rounded-lg border p-4">
-          <p className="text-muted-foreground text-xs uppercase">Active facilities</p>
-          <p className="mt-2 text-2xl font-semibold">{activeFacilitiesRow[0]?.count ?? 0}</p>
-        </div>
-        <div className="bg-card rounded-lg border p-4">
-          <p className="text-muted-foreground text-xs uppercase">Facility contacts</p>
-          <p className="mt-2 text-2xl font-semibold">{totalContactsRow[0]?.count ?? 0}</p>
-        </div>
-        <div className="bg-card rounded-lg border p-4">
-          <p className="text-muted-foreground text-xs uppercase">PFC links</p>
-          <p className="mt-2 text-2xl font-semibold">{totalCredentialLinksRow[0]?.count ?? 0}</p>
-        </div>
-      </div>
+      <MetricsTrendChart
+        labels={{
+          primary: "New facilities",
+          secondary: "New PFC links",
+          tertiary: "Related incidents",
+        }}
+        points={facilityTrendPoints}
+        title="Facility onboarding velocity"
+      />
 
       <form className="bg-card flex flex-col gap-3 rounded-lg border p-4 lg:flex-row lg:items-end" method="get">
         <div className="grid flex-1 gap-3 md:grid-cols-4">
