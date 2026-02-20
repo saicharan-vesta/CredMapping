@@ -161,10 +161,12 @@ export default async function DashboardPage() {
   }));
 
   return (
-    <DashboardClient
-      providerFacilityRows={providerFacilityRows}
-      facilityPreliveRows={facilityPreliveRows}
-      providerLicenseRows={providerLicenseRows}
-    />
+    <div className="flex h-full min-h-0 flex-col overflow-hidden">
+      <DashboardClient
+        providerFacilityRows={providerFacilityRows}
+        facilityPreliveRows={facilityPreliveRows}
+        providerLicenseRows={providerLicenseRows}
+      />
+    </div>
   );
 }

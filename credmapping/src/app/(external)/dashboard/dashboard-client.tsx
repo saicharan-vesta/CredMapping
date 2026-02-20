@@ -336,7 +336,7 @@ export function DashboardClient({
   }, [rightSearch, selectedGroup]);
 
   return (
-    <div className="h-full overflow-hidden rounded-lg border border-border/70">
+    <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-lg border border-border/70">
       <div className="border-b border-border/70 p-3">
         <div className="flex flex-wrap gap-2">
           {viewButtons.map((button) => (
@@ -396,8 +396,8 @@ export function DashboardClient({
         </div>
       </div>
 
-      <div className="grid h-[calc(100%-114px)] grid-cols-1 md:grid-cols-[330px_1fr]">
-        <div className="border-r border-border/60 p-2">
+      <div className="grid min-h-0 flex-1 grid-cols-1 md:grid-cols-[330px_1fr]">
+        <div className="flex min-h-0 flex-col border-r border-border/60 p-3">
           <Input
             placeholder={
               view === "providerFacility" || view === "providerLicense"
@@ -406,9 +406,9 @@ export function DashboardClient({
             }
             value={leftSearch}
             onChange={(event) => setLeftSearch(event.target.value)}
-            className="mb-2"
+            className="mb-3"
           />
-          <div className="h-[calc(100%-44px)] overflow-auto">
+          <div className="min-h-0 flex-1 overflow-auto">
             {activeGroups.length === 0 ? (
               <div className="rounded-md border border-border/50 p-4 text-sm text-muted-foreground">
                 No records match the current filters.
@@ -441,25 +441,18 @@ export function DashboardClient({
           </div>
         </div>
 
-        <div className="p-3">
+        <div className="flex min-h-0 flex-col p-3">
           <Input
             placeholder="Search selected details"
             value={rightSearch}
             onChange={(event) => setRightSearch(event.target.value)}
-            className="mb-2"
+            className="mb-3"
           />
-          <div className="h-[calc(100%-44px)] overflow-auto rounded-md border border-border/60">
+          <div className="min-h-0 flex-1 overflow-auto rounded-md border border-border/60">
             {!selectedGroup ? (
               <div className="p-4 text-sm text-muted-foreground">Select an item to view details.</div>
             ) : (
               <>
-                <div className="border-b border-border/60 p-3">
-                  <div className="font-medium">{selectedGroup.label}</div>
-                  {selectedGroup.subtitle && (
-                    <div className="text-sm text-muted-foreground">{selectedGroup.subtitle}</div>
-                  )}
-                </div>
-
                 {selectedRows.length === 0 ? (
                   <div className="p-4 text-sm text-muted-foreground">No rows match that detail search.</div>
                 ) : null}

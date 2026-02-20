@@ -1,5 +1,6 @@
 import { and, desc, eq, ilike, inArray, or, sql } from "drizzle-orm";
 import { Mail, Phone } from "lucide-react";
+import Link from "next/link";
 import { AddProviderDialog } from "~/components/providers/add-provider-dialog";
 import { ProvidersAutoAdvance } from "~/components/providers-auto-advance";
 import { MetricsTrendChart } from "~/components/metrics-trend-chart";
@@ -429,7 +430,7 @@ export default async function ProvidersPage(props: {
             Apply
           </Button>
           <Button asChild variant="outline">
-            <a href="/providers">Reset</a>
+            <Link href="/providers">Reset</Link>
           </Button>
           {isSuperAdmin ? <AddProviderDialog /> : null}
         </div>
@@ -468,7 +469,14 @@ export default async function ProvidersPage(props: {
                   <details>
                     <summary className="flex cursor-pointer list-none flex-wrap items-center justify-between gap-3 border-b p-4 [&::-webkit-details-marker]:hidden">
                       <div className="flex min-h-9 items-center">
-                        <h2 className="text-lg font-semibold">{displayName}</h2>
+                        <h2 className="text-lg font-semibold">
+                          <Link
+                            className="hover:underline"
+                            href={`/providers/${provider.id}`}
+                          >
+                            {displayName}
+                          </Link>
+                        </h2>
                       </div>
                       <div className="text-muted-foreground space-y-2 text-right text-sm">
                         <div className="flex items-center justify-end gap-2">
