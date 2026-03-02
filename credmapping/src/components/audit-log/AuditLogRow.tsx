@@ -186,7 +186,9 @@ export function AuditLogRow({
         </div>
 
         {/* Action */}
-        <ActionBadge action={action} />
+        <div className="justify-self-start">
+          <ActionBadge action={action} />
+        </div>
 
         {/* Table Name */}
         <div className="text-xs text-primary font-mono truncate min-w-0">
