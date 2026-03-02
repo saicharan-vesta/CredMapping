@@ -156,7 +156,7 @@ export function AuditLogRow({
       <div
         onClick={onToggleExpand}
         className={cn(
-          "group grid cursor-pointer grid-cols-[180px_220px_100px_160px_240px_1fr] gap-4 border-b border-border px-4 py-3 items-center transition-colors",
+          "group grid cursor-pointer grid-cols-[180px_220px_110px_160px_240px_1fr] gap-4 border-b border-border px-4 py-2 items-center transition-colors",
           isExpanded
             ? "border-l-2 border-l-primary bg-muted/10"
             : "border-l-2 border-l-transparent hover:bg-muted/20"
