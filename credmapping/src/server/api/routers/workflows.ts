@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { and, asc, desc, eq, exists, ilike, inArray, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, exists, ilike, inArray, ne, or, sql } from "drizzle-orm";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import { resolveAgentId, writeAuditLog } from "~/server/api/audit";
 import {
@@ -470,10 +470,15 @@ export const workflowsRouter = createTRPCRouter({
           const [existingPrivs] = await ctx.db
             .select()
             .from(providerVestaPrivileges)
-            .where(eq(providerVestaPrivileges.providerId, input.providerId!))
+            .where(
+              and(
+                eq(providerVestaPrivileges.providerId, input.providerId!),
+                ne(providerVestaPrivileges.privilegeTier, "Inactive"),
+              ),
+            )
             .limit(1);
 
-          if (existingPrivs && existingPrivs.privilegeTier !== "Inactive") throw new Error("This provider already has a Vesta Privileges workflow.");
+          if (existingPrivs) throw new Error("This provider already has a Vesta Privileges workflow.");
 
           const [newPriv] = await ctx.db
             .insert(providerVestaPrivileges)
