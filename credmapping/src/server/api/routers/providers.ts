@@ -107,50 +107,100 @@ export const providersRouter = createTRPCRouter({
 
       if (!existing) throw new Error("Provider not found.");
 
-      // Delete state licenses
-      await ctx.db
-        .delete(providerStateLicenses)
-        .where(eq(providerStateLicenses.providerId, input.id));
-
-      // Delete vesta privileges
-      await ctx.db
-        .delete(providerVestaPrivileges)
-        .where(eq(providerVestaPrivileges.providerId, input.id));
-
-      // Delete PFC-linked workflow phases, then PFC records
-      const pfcRows = await ctx.db
-        .select({ id: providerFacilityCredentials.id })
-        .from(providerFacilityCredentials)
-        .where(eq(providerFacilityCredentials.providerId, input.id));
-
-      if (pfcRows.length > 0) {
-        const pfcIds = pfcRows.map((r) => r.id);
-        await ctx.db
-          .delete(workflowPhases)
-          .where(
-            and(
-              eq(workflowPhases.workflowType, "pfc"),
-              inArray(workflowPhases.relatedId, pfcIds),
-            ),
-          );
-        await ctx.db
-          .delete(providerFacilityCredentials)
-          .where(eq(providerFacilityCredentials.providerId, input.id));
-      }
-
-      const [deleted] = await ctx.db
-        .delete(providers)
-        .where(eq(providers.id, input.id))
-        .returning();
-
       const actor = await resolveAgentId(ctx.db, ctx.user.id);
-      await writeAuditLog(ctx.db, {
-        tableName: "providers",
-        recordId: input.id,
-        action: "delete",
-        actorId: actor?.id ?? null,
-        actorEmail: actor?.email ?? ctx.user.email ?? null,
-        oldData: existing as unknown as Record<string, unknown>,
+
+      const deleted = await ctx.db.transaction(async (tx) => {
+        // Delete state licenses
+        const deletedLicenses = await tx
+          .delete(providerStateLicenses)
+          .where(eq(providerStateLicenses.providerId, input.id))
+          .returning();
+        for (const deletedLicense of deletedLicenses) {
+          await writeAuditLog(tx, {
+            tableName: "provider_state_licenses",
+            recordId: deletedLicense.id,
+            action: "delete",
+            actorId: actor?.id ?? null,
+            actorEmail: actor?.email ?? ctx.user.email ?? null,
+            oldData: deletedLicense as unknown as Record<string, unknown>,
+          });
+        }
+
+        // Delete vesta privileges
+        const deletedPrivileges = await tx
+          .delete(providerVestaPrivileges)
+          .where(eq(providerVestaPrivileges.providerId, input.id))
+          .returning();
+        for (const deletedPrivilege of deletedPrivileges) {
+          await writeAuditLog(tx, {
+            tableName: "provider_vesta_privileges",
+            recordId: deletedPrivilege.id,
+            action: "delete",
+            actorId: actor?.id ?? null,
+            actorEmail: actor?.email ?? ctx.user.email ?? null,
+            oldData: deletedPrivilege as unknown as Record<string, unknown>,
+          });
+        }
+
+        // Delete PFC-linked workflow phases, then PFC records
+        const pfcRows = await tx
+          .select({ id: providerFacilityCredentials.id })
+          .from(providerFacilityCredentials)
+          .where(eq(providerFacilityCredentials.providerId, input.id));
+
+        if (pfcRows.length > 0) {
+          const pfcIds = pfcRows.map((r) => r.id);
+          const deletedPhases = await tx
+            .delete(workflowPhases)
+            .where(
+              and(
+                eq(workflowPhases.workflowType, "pfc"),
+                inArray(workflowPhases.relatedId, pfcIds),
+              ),
+            )
+            .returning();
+          for (const deletedPhase of deletedPhases) {
+            await writeAuditLog(tx, {
+              tableName: "workflow_phases",
+              recordId: deletedPhase.id,
+              action: "delete",
+              actorId: actor?.id ?? null,
+              actorEmail: actor?.email ?? ctx.user.email ?? null,
+              oldData: deletedPhase as unknown as Record<string, unknown>,
+            });
+          }
+
+          const deletedPfcRows = await tx
+            .delete(providerFacilityCredentials)
+            .where(eq(providerFacilityCredentials.providerId, input.id))
+            .returning();
+          for (const deletedPfc of deletedPfcRows) {
+            await writeAuditLog(tx, {
+              tableName: "provider_facility_credentials",
+              recordId: deletedPfc.id,
+              action: "delete",
+              actorId: actor?.id ?? null,
+              actorEmail: actor?.email ?? ctx.user.email ?? null,
+              oldData: deletedPfc as unknown as Record<string, unknown>,
+            });
+          }
+        }
+
+        const [deletedProvider] = await tx
+          .delete(providers)
+          .where(eq(providers.id, input.id))
+          .returning();
+
+        await writeAuditLog(tx, {
+          tableName: "providers",
+          recordId: input.id,
+          action: "delete",
+          actorId: actor?.id ?? null,
+          actorEmail: actor?.email ?? ctx.user.email ?? null,
+          oldData: existing as unknown as Record<string, unknown>,
+        });
+
+        return deletedProvider;
       });
 
       return { success: true, deleted };

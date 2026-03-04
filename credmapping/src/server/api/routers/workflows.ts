@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { and, asc, desc, eq, exists, ilike, inArray, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, exists, ilike, inArray, ne, or, sql } from "drizzle-orm";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import { resolveAgentId, writeAuditLog } from "~/server/api/audit";
 import {
@@ -11,7 +11,15 @@ import {
   providerStateLicenses,
   providerVestaPrivileges,
   workflowPhases,
+  facilityPreliveInfo,
 } from "~/server/db/schema";
+import { type InferSelectModel } from "drizzle-orm";
+
+type ParentRecordData = 
+  | InferSelectModel<typeof providerFacilityCredentials>
+  | InferSelectModel<typeof providerStateLicenses>
+  | InferSelectModel<typeof facilityPreliveInfo>
+  | InferSelectModel<typeof providerVestaPrivileges>;
 
 const toNull = (v: string | undefined | null) =>
   v === undefined || v === null || v.trim() === "" ? null : v.trim();
@@ -293,13 +301,11 @@ export const workflowsRouter = createTRPCRouter({
   create: protectedProcedure
     .input(
       z.object({
-        // --- REQUIRED IDENTIFIERS ---
         workflowType: z.enum(["pfc", "state_licenses", "prelive_pipeline", "provider_vesta_privileges"]),
-        providerId: z.string().uuid(),
-        facilityId: z.string().uuid(),
+        providerId: z.string().uuid().optional(),
+        facilityId: z.string().uuid().optional(),
 
         // --- BULK PHASES ---
-        // Instead of individual fields, we accept an array of phase objects
         phases: z.array(
           z.object({
             phaseName: z.string().trim().min(1),
@@ -318,52 +324,193 @@ export const workflowsRouter = createTRPCRouter({
         priority: z.string().optional(),
         applicationRequired: z.boolean().optional(),
         pfcNotes: z.string().optional(),
+
+        // --- STATE LICENSES OPTIONAL FIELDS ---
+        licenseState: z.string().optional(),
+        licenseStatus: z.string().optional(),
+        licensePath: z.string().optional(),
+        licensePriority: z.string().optional(),
+        licenseNotes: z.string().optional(),
+        licenseInitialOrRenewal: z.enum(["initial", "renewal"]).optional(), 
+        licenseEmailSubjectOrTicketNum: z.string().optional(),
+        licenseNumber: z.string().optional(),
+
+        // --- PRE-LIVE PIPELINE OPTIONAL FIELDS ---
+        prelivePriority: z.string().optional(),
+        preliveGoLiveDate: z.string().date().optional(),
+        preliveCredentialingDueDate: z.string().date().optional(),
+        preliveTempsPossible: z.boolean().optional(),
+        prelivePayorEnrollmentRequired: z.boolean().optional(),
+        preliveMedicalDirectorNeeded: z.boolean().optional(),
+        preliveRsoNeeded: z.boolean().optional(),
+        preliveLipNeeded: z.boolean().optional(),
+
+        // --- VESTA PRIVILEGES OPTIONAL FIELDS ---
+        vestaPrivilegeTier: z.enum(["Inactive", "Full", "Temp", "In Progress"]).optional(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
       const actor = await resolveAgentId(ctx.db, ctx.user.id);
       if (!actor) throw new Error("Agent record not found.");
 
-      // Existing PFC Check
-      const [existingPfc] = await ctx.db
-        .select()
-        .from(providerFacilityCredentials)
-        .where(
-          and(
-            eq(providerFacilityCredentials.providerId, input.providerId),
-            eq(providerFacilityCredentials.facilityId, input.facilityId)
-          )
-        )
-        .limit(1);
+      const needsProvider = ["pfc", "state_licenses", "provider_vesta_privileges"].includes(input.workflowType);
+      const needsFacility = ["pfc", "prelive_pipeline"].includes(input.workflowType);
 
-      if (existingPfc) throw new Error("This provider is already connected to this facility.");
+      if (needsProvider && !input.providerId) throw new Error("Provider ID is required for this workflow.");
+      if (needsFacility && !input.facilityId) throw new Error("Facility ID is required for this workflow.");
 
-      // Create the Relationship (PFC only right now)
-      const [newPfc] = await ctx.db
-        .insert(providerFacilityCredentials)
-        .values({
-          providerId: input.providerId,
-          facilityId: input.facilityId,
-          facilityType: input.facilityType,
-          privileges: input.privileges,
-          priority: input.priority,
-          applicationRequired: input.applicationRequired,
-          notes: input.pfcNotes,
-        })
-        .returning();
+      // Vars for audit logging
+      let relatedId: string;
+      let parentTableName: string;
+      let parentRecordData: ParentRecordData;
 
+      // Create workflow based on type and capture relatedId + table name for audit logging
+      switch (input.workflowType) {
+        case "pfc": {
+          const [existingPfc] = await ctx.db
+            .select()
+            .from(providerFacilityCredentials)
+            .where(
+              and(
+                eq(providerFacilityCredentials.providerId, input.providerId!),
+                eq(providerFacilityCredentials.facilityId, input.facilityId!)
+              )
+            )
+            .limit(1);
+
+          if (existingPfc) throw new Error("This provider is already connected to this facility.");
+
+          const [newPfc] = await ctx.db
+            .insert(providerFacilityCredentials)
+            .values({
+              providerId: input.providerId!,
+              facilityId: input.facilityId!,
+              facilityType: input.facilityType,
+              privileges: input.privileges,
+              priority: input.priority,
+              applicationRequired: input.applicationRequired,
+              notes: input.pfcNotes,
+            })
+            .returning();
+          
+          relatedId = newPfc!.id;
+          parentTableName = "provider_facility_credentials";
+          parentRecordData = newPfc!;
+          break;
+        }
+
+        case "state_licenses": {
+          if (!input.licenseState) throw new Error("State is required for a State License workflow.");
+
+          const [existingLicense] = await ctx.db
+            .select()
+            .from(providerStateLicenses)
+            .where(
+              and(
+                eq(providerStateLicenses.providerId, input.providerId!),
+                eq(providerStateLicenses.state, input.licenseState)
+              )
+            )
+            .limit(1);
+
+          if (existingLicense) throw new Error(`This provider already has a license record for ${input.licenseState}.`);
+
+          const [newLicense] = await ctx.db
+            .insert(providerStateLicenses)
+            .values({ 
+              providerId: input.providerId!,
+              state: input.licenseState,
+              status: input.licenseStatus,
+              path: input.licensePath,
+              priority: input.licensePriority,
+              notes: input.licenseNotes,
+              initialOrRenewal: input.licenseInitialOrRenewal,
+              emailSubjectOrTicketNum: input.licenseEmailSubjectOrTicketNum,
+              number: input.licenseNumber,
+            })
+            .returning();
+            
+          relatedId = newLicense!.id;
+          parentTableName = "provider_state_licenses";
+          parentRecordData = newLicense!;
+          break;
+        }
+
+        case "prelive_pipeline": {
+          const [existingPrelive] = await ctx.db
+            .select()
+            .from(facilityPreliveInfo)
+            .where(eq(facilityPreliveInfo.facilityId, input.facilityId!))
+            .limit(1);
+
+          if (existingPrelive) throw new Error("This facility is already in the pre-live pipeline.");
+
+          const [newPrelive] = await ctx.db
+            .insert(facilityPreliveInfo)
+            .values({ 
+              facilityId: input.facilityId!,
+              priority: input.prelivePriority,
+              goLiveDate: input.preliveGoLiveDate,
+              credentialingDueDate: input.preliveCredentialingDueDate,
+              tempsPossible: input.preliveTempsPossible,
+              payorEnrollmentRequired: input.prelivePayorEnrollmentRequired,
+              medicalDirectorNeeded: input.preliveMedicalDirectorNeeded,
+              rsoNeeded: input.preliveRsoNeeded,
+              lipNeeded: input.preliveLipNeeded,
+            })
+            .returning();
+            
+          relatedId = newPrelive!.id;
+          parentTableName = "facility_prelive_info";
+          parentRecordData = newPrelive!;
+          break;
+        }
+
+        case "provider_vesta_privileges": {
+          const [existingPrivs] = await ctx.db
+            .select()
+            .from(providerVestaPrivileges)
+            .where(
+              and(
+                eq(providerVestaPrivileges.providerId, input.providerId!),
+                ne(providerVestaPrivileges.privilegeTier, "Inactive"),
+              ),
+            )
+            .limit(1);
+
+          if (existingPrivs) throw new Error("This provider already has a Vesta Privileges workflow.");
+
+          const [newPriv] = await ctx.db
+            .insert(providerVestaPrivileges)
+            .values({ 
+              providerId: input.providerId!,
+              privilegeTier: input.vestaPrivilegeTier,
+            })
+            .returning();
+            
+          relatedId = newPriv!.id;
+          parentTableName = "provider_vesta_privileges";
+          parentRecordData = newPriv!;
+          break;
+        }
+
+        default:
+          throw new Error("Invalid workflow type provided.");
+      }
+
+      // Audit Log for workflow creation
       await writeAuditLog(ctx.db, {
-        tableName: "provider_facility_credentials",
-        recordId: newPfc!.id,
+        tableName: parentTableName,
+        recordId: relatedId,
         action: "create",
         actorId: actor.id,
         actorEmail: actor.email,
-        newData: newPfc as unknown as Record<string, unknown>,
+        newData: parentRecordData as Record<string, unknown>,
       });
       
       const phaseRecords = input.phases.map((phase) => ({
         workflowType: input.workflowType,
-        relatedId: newPfc!.id,
+        relatedId: relatedId,
         phaseName: phase.phaseName,
         startDate: phase.startDate,
         dueDate: phase.dueDate,
@@ -391,7 +538,7 @@ export const workflowsRouter = createTRPCRouter({
         });
       }
 
-      return { pfc: newPfc, phases: createdPhases };
+      return { success: true, parentId: relatedId, phases: createdPhases };
     }),
 
   /** Update a workflow phase — the core operation.

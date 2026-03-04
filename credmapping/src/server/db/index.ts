@@ -30,7 +30,7 @@ if (env.NODE_ENV !== "production") {
 
 export const db = drizzle({ client: conn, schema });
 
-type DbTx = Parameters<Parameters<typeof db.transaction>[0]>[0];
+export type DbTx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
 export const withRls = async <T>(params: {
   jwtClaims: {
