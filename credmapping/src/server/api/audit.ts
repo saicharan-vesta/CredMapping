@@ -1,8 +1,8 @@
 import { eq } from "drizzle-orm";
-import type { db as dbType } from "~/server/db";
+import type { db as dbType, DbTx } from "~/server/db";
 import { agents, auditLog } from "~/server/db/schema";
 
-type Db = typeof dbType;
+type Db = typeof dbType | DbTx;
 
 /**
  * Resolve the internal agent ID from a Supabase auth user ID.

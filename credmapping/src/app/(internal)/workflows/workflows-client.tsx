@@ -758,12 +758,44 @@ function AddWorkflowDialog() {
   const [open, setOpen] = useState(false);
   const utils = api.useUtils();
 
+  // Dialog open states
   const [openProvider, setOpenProvider] = useState(false);
   const [openFacility, setOpenFacility] = useState(false);
 
+  // Identifiers
   const [workflowType, setWorkflowType] = useState<"pfc" | "state_licenses" | "prelive_pipeline" | "provider_vesta_privileges">("pfc");
   const [providerId, setProviderId] = useState<string>("");
   const [facilityId, setFacilityId] = useState<string>("");
+
+  // PFC States
+  const [facilityType, setFacilityType] = useState<string>("");
+  const [privileges, setPrivileges] = useState<string>("");
+  const [priority, setPriority] = useState<string>("");
+  const [applicationRequired, setApplicationRequired] = useState<boolean>(false);
+  const [pfcNotes, setPfcNotes] = useState<string>("");
+
+  // State Licenses States
+  const [licenseState, setLicenseState] = useState<string>("");
+  const [licenseStatus, setLicenseStatus] = useState<string>("");
+  const [licensePath, setLicensePath] = useState<string>("");
+  const [licensePriority, setLicensePriority] = useState<string>("");
+  const [licenseNotes, setLicenseNotes] = useState<string>("");
+  const [licenseInitialOrRenewal, setLicenseInitialOrRenewal] = useState<"initial" | "renewal" | undefined>();
+  const [licenseEmailSubject, setLicenseEmailSubject] = useState<string>("");
+  const [licenseNumber, setLicenseNumber] = useState<string>("");
+
+  // Pre-Live Pipeline States
+  const [prelivePriority, setPrelivePriority] = useState<string>("");
+  const [preliveGoLiveDate, setPreliveGoLiveDate] = useState<string>("");
+  const [preliveCredentialingDueDate, setPreliveCredentialingDueDate] = useState<string>("");
+  const [preliveTempsPossible, setPreliveTempsPossible] = useState<boolean>(false);
+  const [prelivePayorEnrollmentRequired, setPrelivePayorEnrollmentRequired] = useState<boolean>(false);
+  const [preliveMedicalDirectorNeeded, setPreliveMedicalDirectorNeeded] = useState<boolean>(false);
+  const [preliveRsoNeeded, setPreliveRsoNeeded] = useState<boolean>(false);
+  const [preliveLipNeeded, setPreliveLipNeeded] = useState<boolean>(false);
+
+  // Vesta Privileges States
+  const [vestaPrivilegeTier, setVestaPrivilegeTier] = useState<"Inactive" | "Full" | "Temp" | "In Progress" | undefined>("In Progress");
 
   const [phases, setPhases] = useState<WorkflowPhaseInput[]>(() => 
     PFC_PHASES.map((name) => ({
@@ -800,12 +832,6 @@ function AddWorkflowDialog() {
     }
   }, [workflowType]);
 
-  const [facilityType, setFacilityType] = useState<string>("");
-  const [privileges, setPrivileges] = useState<string>("");
-  const [priority, setPriority] = useState<string>("");
-  const [applicationRequired, setApplicationRequired] = useState<boolean>(false);
-  const [pfcNotes, setPfcNotes] = useState<string>("");
-
   const updatePhase = <K extends keyof WorkflowPhaseInput>(
     index: number,
     field: K,
@@ -813,14 +839,30 @@ function AddWorkflowDialog() {
   ) => {
     const nextPhases = [...phases];
     const targetPhase = nextPhases[index];
-
     if (targetPhase) {
       targetPhase[field] = value;
       setPhases(nextPhases);
     }
   };
 
-  // Fetch lists for Dropdowns
+  const addPhase = () => {
+    setPhases([
+      ...phases,
+      {
+        phaseName: `Phase ${phases.length + 1}`,
+        startDate: new Date().toISOString().split("T")[0]!,
+        dueDate: "",
+        status: "Pending",
+        agentAssigned: "",
+        workflowNotes: "",
+      }
+    ]);
+  };
+
+  const removePhase = (indexToRemove: number) => {
+    setPhases(phases.filter((_, index) => index !== indexToRemove));
+  };
+
   const { data: providers = [], isLoading: isLoadingProviders } = api.workflows.listProvidersForDropdown.useQuery(undefined, {
     enabled: open,
   });
@@ -845,34 +887,101 @@ function AddWorkflowDialog() {
     setProviderId("");
     setFacilityId("");
     setWorkflowType("pfc");
+    
+    // Reset PFC
     setFacilityType("");
     setPrivileges("");
     setPriority("");
     setApplicationRequired(false);
     setPfcNotes("");
+
+    // Reset State Licenses
+    setLicenseState("");
+    setLicenseStatus("");
+    setLicensePath("");
+    setLicensePriority("");
+    setLicenseNotes("");
+    setLicenseInitialOrRenewal(undefined);
+    setLicenseEmailSubject("");
+    setLicenseNumber("");
+
+    // Reset Pre-Live
+    setPrelivePriority("");
+    setPreliveGoLiveDate("");
+    setPreliveCredentialingDueDate("");
+    setPreliveTempsPossible(false);
+    setPrelivePayorEnrollmentRequired(false);
+    setPreliveMedicalDirectorNeeded(false);
+    setPreliveRsoNeeded(false);
+    setPreliveLipNeeded(false);
+
+    // Reset Vesta Privs
+    setVestaPrivilegeTier("In Progress");
+
+    setPhases(PFC_PHASES.map((name) => ({
+        phaseName: name,
+        startDate: new Date().toISOString().split("T")[0]!,
+        dueDate: "",
+        status: "Pending",
+        agentAssigned: "",
+        workflowNotes: "",
+    })));
   }
 
   function handleCreate() {
-    if (!providerId || !facilityId) {
-      toast.error("Please select both a Provider and a Facility.");
+    const needsProvider = ["pfc", "state_licenses", "provider_vesta_privileges"].includes(workflowType);
+    const needsFacility = ["pfc", "prelive_pipeline"].includes(workflowType);
+
+    if (needsProvider && !providerId) {
+      toast.error("Please select a Provider.");
+      return;
+    }
+    if (needsFacility && !facilityId) {
+      toast.error("Please select a Facility.");
       return;
     }
 
+    // Build the payload dynamically
     createMutation.mutate({
       workflowType,
-      providerId,
-      facilityId,
+      providerId: needsProvider ? providerId : undefined,
+      facilityId: needsFacility ? facilityId : undefined,
       phases: phases.map(p => ({
         ...p,
         dueDate: p.dueDate || undefined,
         agentAssigned: p.agentAssigned || undefined,
         workflowNotes: p.workflowNotes || undefined
       })),
-      facilityType: facilityType || undefined,
-      privileges: privileges || undefined,
-      priority: priority || undefined,
-      applicationRequired,
-      pfcNotes: pfcNotes || undefined,
+
+      // PFC Data
+      facilityType: workflowType === "pfc" ? facilityType || undefined : undefined,
+      privileges: workflowType === "pfc" ? privileges || undefined : undefined,
+      priority: workflowType === "pfc" ? priority || undefined : undefined,
+      applicationRequired: workflowType === "pfc" ? applicationRequired : undefined,
+      pfcNotes: workflowType === "pfc" ? pfcNotes || undefined : undefined,
+
+      // State License Data
+      licenseState: workflowType === "state_licenses" ? licenseState || undefined : undefined,
+      licenseStatus: workflowType === "state_licenses" ? licenseStatus || undefined : undefined,
+      licensePath: workflowType === "state_licenses" ? licensePath || undefined : undefined,
+      licensePriority: workflowType === "state_licenses" ? licensePriority || undefined : undefined,
+      licenseNotes: workflowType === "state_licenses" ? licenseNotes || undefined : undefined,
+      licenseInitialOrRenewal: workflowType === "state_licenses" ? licenseInitialOrRenewal : undefined,
+      licenseEmailSubjectOrTicketNum: workflowType === "state_licenses" ? licenseEmailSubject || undefined : undefined,
+      licenseNumber: workflowType === "state_licenses" ? licenseNumber || undefined : undefined,
+
+      // Pre-Live Pipeline Data
+      prelivePriority: workflowType === "prelive_pipeline" ? prelivePriority || undefined : undefined,
+      preliveGoLiveDate: workflowType === "prelive_pipeline" ? preliveGoLiveDate || undefined : undefined,
+      preliveCredentialingDueDate: workflowType === "prelive_pipeline" ? preliveCredentialingDueDate || undefined : undefined,
+      preliveTempsPossible: workflowType === "prelive_pipeline" ? preliveTempsPossible : undefined,
+      prelivePayorEnrollmentRequired: workflowType === "prelive_pipeline" ? prelivePayorEnrollmentRequired : undefined,
+      preliveMedicalDirectorNeeded: workflowType === "prelive_pipeline" ? preliveMedicalDirectorNeeded : undefined,
+      preliveRsoNeeded: workflowType === "prelive_pipeline" ? preliveRsoNeeded : undefined,
+      preliveLipNeeded: workflowType === "prelive_pipeline" ? preliveLipNeeded : undefined,
+
+      // Vesta Privileges Data
+      vestaPrivilegeTier: workflowType === "provider_vesta_privileges" ? vestaPrivilegeTier : undefined,
     });
   }
 
@@ -887,7 +996,7 @@ function AddWorkflowDialog() {
         </Button>
       </DialogTrigger>
 
-      <ModalContent className="sm:max-w-160 overflow-visible">
+      <ModalContent className="sm:max-w-2xl overflow-visible">
         <ModalHeader>
           <ModalTitle>Start Credentialing Process</ModalTitle>
         </ModalHeader>
@@ -912,98 +1021,279 @@ function AddWorkflowDialog() {
 
           {/* Identifiers */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 px-1">
-            <div className="space-y-1.5 flex flex-col">
-              <Label>Provider *</Label>
-              <Popover modal={true} open={openProvider} onOpenChange={setOpenProvider}>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" role="combobox" className="justify-between font-normal w-full" disabled={isLoadingProviders}>
-                    <span className="truncate">{providerId ? providers.find(p => p.id === providerId)?.name : "Search..."}</span>
-                    <ArrowUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-                  <Command>
-                    <CommandInput placeholder="Search name..." />
-                    <CommandList>
-                      <CommandEmpty>No providers found.</CommandEmpty>
-                      <CommandGroup>
-                        {providers.map((p) => (
-                          <CommandItem key={p.id} value={p.name} onSelect={() => { setProviderId(p.id); setOpenProvider(false); }}>
-                            <CheckCircle2 className={cn("mr-2 h-4 w-4", providerId === p.id ? "opacity-100" : "opacity-0")} />
-                            {p.name}
-                          </CommandItem>
-                        ))}
-                      </CommandGroup>
-                    </CommandList>
-                  </Command>
-                </PopoverContent>
-              </Popover>
-            </div>
+            {(workflowType === "pfc" || workflowType === "provider_vesta_privileges") && (
+              <div className="space-y-1.5 flex flex-col">
+                <Label>Provider *</Label>
+                <Popover modal={true} open={openProvider} onOpenChange={setOpenProvider}>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" role="combobox" className="justify-between font-normal w-full" disabled={isLoadingProviders}>
+                      <span className="truncate">{providerId ? providers.find(p => p.id === providerId)?.name : "Search..."}</span>
+                      <ArrowUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                    <Command>
+                      <CommandInput placeholder="Search name..." />
+                      <CommandList>
+                        <CommandEmpty>No providers found.</CommandEmpty>
+                        <CommandGroup>
+                          {providers.map((p) => (
+                            <CommandItem key={p.id} value={p.name} onSelect={() => { setProviderId(p.id); setOpenProvider(false); }}>
+                              <CheckCircle2 className={cn("mr-2 h-4 w-4", providerId === p.id ? "opacity-100" : "opacity-0")} />
+                              {p.name}
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+              </div>
+            )}
 
-            <div className="space-y-1.5 flex flex-col">
-              <Label>Facility *</Label>
-              <Popover modal={true} open={openFacility} onOpenChange={setOpenFacility}>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" role="combobox" className="justify-between font-normal w-full" disabled={isLoadingFacilities}>
-                    <span className="truncate">{facilityId ? facilities.find(f => f.id === facilityId)?.name : "Search..."}</span>
-                    <ArrowUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-                  <Command>
-                    <CommandInput placeholder="Search facility..." />
-                    <CommandList>
-                      <CommandEmpty>No facilities found.</CommandEmpty>
-                      <CommandGroup>
-                        {facilities.map((f) => (
-                          <CommandItem key={f.id} value={f.name ?? ""} onSelect={() => { setFacilityId(f.id); setOpenFacility(false); }}>
-                            <CheckCircle2 className={cn("mr-2 h-4 w-4", facilityId === f.id ? "opacity-100" : "opacity-0")} />
-                            {f.name}
-                          </CommandItem>
-                        ))}
-                      </CommandGroup>
-                    </CommandList>
-                  </Command>
-                </PopoverContent>
-              </Popover>
-            </div>
+            {(workflowType === "pfc" || workflowType === "prelive_pipeline") && (
+              <div className="space-y-1.5 flex flex-col">
+                <Label>Facility *</Label>
+                <Popover modal={true} open={openFacility} onOpenChange={setOpenFacility}>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" role="combobox" className="justify-between font-normal w-full" disabled={isLoadingFacilities}>
+                      <span className="truncate">{facilityId ? facilities.find(f => f.id === facilityId)?.name : "Search..."}</span>
+                      <ArrowUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                    <Command>
+                      <CommandInput placeholder="Search facility..." />
+                      <CommandList>
+                        <CommandEmpty>No facilities found.</CommandEmpty>
+                        <CommandGroup>
+                          {facilities.map((f) => (
+                            <CommandItem key={f.id} value={f.name ?? ""} onSelect={() => { setFacilityId(f.id); setOpenFacility(false); }}>
+                              <CheckCircle2 className={cn("mr-2 h-4 w-4", facilityId === f.id ? "opacity-100" : "opacity-0")} />
+                              {f.name}
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+              </div>
+            )}
+
+            {workflowType === "state_licenses" && (
+              <>
+                <div className="space-y-1.5 flex flex-col">
+                  <Label>Provider *</Label>
+                  <Popover modal={true} open={openProvider} onOpenChange={setOpenProvider}>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" role="combobox" className="justify-between font-normal w-full" disabled={isLoadingProviders}>
+                        <span className="truncate">{providerId ? providers.find(p => p.id === providerId)?.name : "Search..."}</span>
+                        <ArrowUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                      <Command>
+                        <CommandInput placeholder="Search name..." />
+                        <CommandList>
+                          <CommandEmpty>No providers found.</CommandEmpty>
+                          <CommandGroup>
+                            {providers.map((p) => (
+                              <CommandItem key={p.id} value={p.name} onSelect={() => { setProviderId(p.id); setOpenProvider(false); }}>
+                                <CheckCircle2 className={cn("mr-2 h-4 w-4", providerId === p.id ? "opacity-100" : "opacity-0")} />
+                                {p.name}
+                              </CommandItem>
+                            ))}
+                          </CommandGroup>
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label>State *</Label>
+                  <Input value={licenseState} onChange={(e) => setLicenseState(e.target.value)} placeholder="e.g. Florida" />
+                </div>
+              </>
+            )}
           </div>
 
           <Separator />
 
-          {/* Relationship Details (PFC Specific) */}
-          <div className="space-y-4 px-1">
-            <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Relationship Info (PFC Only)</h4>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <Label>Facility Type</Label>
-                <Input value={facilityType} onChange={(e) => setFacilityType(e.target.value)} placeholder="e.g. Hospital" />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Priority</Label>
-                <Input value={priority} onChange={(e) => setPriority(e.target.value)} placeholder="High/Med/Low" />
-              </div>
+          <div className="space-y-4">
+            <div className="flex items-center justify-between px-1">
+              <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-widest">
+                {workflowType === "pfc" ? "Relationship Info" : 
+                workflowType === "state_licenses" ? "License Details" :
+                workflowType === "prelive_pipeline" ? "Pipeline Milestones" : "Vesta Details"}
+              </h4>
+              <Badge variant="outline" className="text-[10px] font-normal opacity-70">Optional</Badge>
             </div>
-            <div className="flex items-center gap-2">
-              <Checkbox id="appReq" checked={applicationRequired} onCheckedChange={(v) => setApplicationRequired(!!v)} />
-              <Label htmlFor="appReq">Application Required</Label>
-            </div>
+
+            {/* PFC FIELDS */}
+            {workflowType === "pfc" && (
+              <div className="space-y-4 px-1">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <Label>Facility Type</Label>
+                    <Input value={facilityType} onChange={(e) => setFacilityType(e.target.value)} placeholder="e.g. Hospital" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Priority</Label>
+                    <Input value={priority} onChange={(e) => setPriority(e.target.value)} placeholder="High/Med/Low" />
+                  </div>
+                  <div className="col-span-2 space-y-1.5">
+                    <Label>Privileges</Label>
+                    <Input value={privileges} onChange={(e) => setPrivileges(e.target.value)} placeholder="e.g. Initial" />
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <Label>PFC Notes</Label>
+                  <Textarea rows={2} value={pfcNotes} onChange={(e) => setPfcNotes(e.target.value)} placeholder="Internal notes about this relationship..." />
+                </div>
+                <div className="flex items-center gap-2">
+                  <Checkbox id="appReq" checked={applicationRequired} onCheckedChange={(v) => setApplicationRequired(!!v)} />
+                  <Label htmlFor="appReq">Application Required</Label>
+                </div>
+              </div>
+            )}
+
+            {/* STATE LICENSE FIELDS */}
+            {workflowType === "state_licenses" && (
+              <div className="space-y-4 px-1">
+                <div className="space-y-1.5">
+                  <Label>Current Status</Label>
+                  <Input value={licenseStatus} onChange={(e) => setLicenseStatus(e.target.value)} placeholder="e.g. Pending Compact LOQ" />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <Label>Priority</Label>
+                    <Input value={licensePriority} onChange={(e) => setLicensePriority(e.target.value)} placeholder="High/Med/Low" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Type</Label>
+                    <Select value={licenseInitialOrRenewal} onValueChange={(v: "initial" | "renewal") => setLicenseInitialOrRenewal(v)}>
+                      <SelectTrigger><SelectValue placeholder="Select..." /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="initial">Initial</SelectItem>
+                        <SelectItem value="renewal">Renewal</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Email / Ticket #</Label>
+                    <Input value={licenseEmailSubject} onChange={(e) => setLicenseEmailSubject(e.target.value)} placeholder="Ref number" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>License #</Label>
+                    <Input value={licenseNumber} onChange={(e) => setLicenseNumber(e.target.value)} placeholder="If known" />
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Path / URL</Label>
+                  <Input value={licensePath} onChange={(e) => setLicensePath(e.target.value)} placeholder="e.g. via Medical Board" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>License Notes</Label>
+                  <Textarea rows={2} value={licenseNotes} onChange={(e) => setLicenseNotes(e.target.value)} placeholder="Any specific state requirements..." />
+                </div>
+              </div>
+            )}
+
+            {/* PRE-LIVE PIPELINE FIELDS */}
+            {workflowType === "prelive_pipeline" && (
+              <div className="space-y-4 px-1">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <Label>Target Go-Live</Label>
+                    <Input type="date" value={preliveGoLiveDate} onChange={(e) => setPreliveGoLiveDate(e.target.value)} />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Credentialing Due</Label>
+                    <Input type="date" value={preliveCredentialingDueDate} onChange={(e) => setPreliveCredentialingDueDate(e.target.value)} />
+                  </div>
+                  <div className="space-y-1.5 col-span-2">
+                    <Label>Priority</Label>
+                    <Input value={prelivePriority} onChange={(e) => setPrelivePriority(e.target.value)} placeholder="High/Med/Low" />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-y-3 pt-2">
+                  <div className="flex items-center gap-2">
+                    <Checkbox id="temps" checked={preliveTempsPossible} onCheckedChange={(v) => setPreliveTempsPossible(!!v)} />
+                    <Label htmlFor="temps" className="text-sm">Temps Possible</Label>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Checkbox id="payor" checked={prelivePayorEnrollmentRequired} onCheckedChange={(v) => setPrelivePayorEnrollmentRequired(!!v)} />
+                    <Label htmlFor="payor" className="text-sm">Payor Enrollment</Label>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Checkbox id="director" checked={preliveMedicalDirectorNeeded} onCheckedChange={(v) => setPreliveMedicalDirectorNeeded(!!v)} />
+                    <Label htmlFor="director" className="text-sm">Med Director Needed</Label>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Checkbox id="rso" checked={preliveRsoNeeded} onCheckedChange={(v) => setPreliveRsoNeeded(!!v)} />
+                    <Label htmlFor="rso" className="text-sm">RSO Needed</Label>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Checkbox id="lip" checked={preliveLipNeeded} onCheckedChange={(v) => setPreliveLipNeeded(!!v)} />
+                    <Label htmlFor="lip" className="text-sm">LIP Needed</Label>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* VESTA PRIVILEGES FIELDS */}
+            {workflowType === "provider_vesta_privileges" && (
+              <div className="space-y-4 px-1">
+                <div className="space-y-1.5">
+                  <Label>Initial Privilege Tier</Label>
+                  <Select value={vestaPrivilegeTier} onValueChange={(v: "Inactive" | "Full" | "Temp" | "In Progress") => setVestaPrivilegeTier(v)}>
+                    <SelectTrigger><SelectValue placeholder="Select Tier..." /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="In Progress">In Progress</SelectItem>
+                      <SelectItem value="Temp">Temp</SelectItem>
+                      <SelectItem value="Full">Full</SelectItem>
+                      <SelectItem value="Inactive">Inactive</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            )}
           </div>
 
           <Separator />
 
           {/* Workflow Phases with Accordion */}
           <div className="space-y-4 px-1">
-            <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Configure Workflow Phases</h4>
+            <div className="flex items-center justify-between">
+              <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Configure Workflow Phases</h4>
+              <Button variant="outline" size="sm" onClick={addPhase} className="h-7 text-xs">
+                <Plus className="size-3 mr-1" /> Add Phase
+              </Button>
+            </div>
             <Accordion type="single" collapsible className="w-full border rounded-md overflow-hidden bg-background">
-              {phases.map((phase, index) => (
-                <AccordionItem key={index} value={`phase-${index}`} className="px-3 border-b last:border-b-0">
-                  <AccordionTrigger className="hover:no-underline py-3">
-                    <div className="flex items-center gap-3">
-                      <Badge variant="secondary" className="h-5 w-5 flex items-center justify-center p-0 rounded-full">{index + 1}</Badge>
-                      <span className="font-medium text-sm">{phase.phaseName}</span>
-                    </div>
-                  </AccordionTrigger>
+              {(phases && phases.length > 0) ? phases.map((phase, index) => (
+                <AccordionItem key={index} value={`phase-${index}`} className="px-3 border-b last:border-b-0 w-full">
+                  <div className="w-full flex items-center gap-2 [&>h3]:flex-1">
+                    <AccordionTrigger className="hover:no-underline py-3 flex-1 w-full">
+                      <div className="flex items-center gap-3">
+                        <Badge variant="secondary" className="h-5 w-5 flex items-center justify-center p-0 rounded-full">{index + 1}</Badge>
+                        <span className="font-medium text-sm">{phase.phaseName}</span>
+                      </div>
+                    </AccordionTrigger>
+                    
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      className="h-8 w-8 text-destructive hover:bg-destructive/10 shrink-0" 
+                      onClick={() => removePhase(index)}
+                    >
+                      <Trash2 className="size-4" />
+                    </Button>
+                  </div>
+
                   <AccordionContent className="pb-4 space-y-4 pt-1">
                     <div className="grid grid-cols-2 gap-3">
                       <div className="space-y-1.5">
@@ -1038,7 +1328,12 @@ function AddWorkflowDialog() {
                     </div>
                   </AccordionContent>
                 </AccordionItem>
-              ))}
+              )) : (
+                <div className="rounded-md border border-dashed p-8 text-center">
+                  <AlertTriangle className="mx-auto size-8 text-muted-foreground/50" />
+                  <p className="mt-2 text-sm text-muted-foreground">No phases added yet.</p>
+                </div>
+              )}
             </Accordion>
           </div>
         </div>
@@ -1049,7 +1344,12 @@ function AddWorkflowDialog() {
           </DialogClose>
           <Button 
             onClick={handleCreate} 
-            disabled={createMutation.isPending || !providerId || !facilityId}
+           disabled={
+              createMutation.isPending || 
+              (["pfc", "state_licenses", "provider_vesta_privileges"].includes(workflowType) && !providerId) ||
+              (["pfc", "prelive_pipeline"].includes(workflowType) && !facilityId) ||
+              (workflowType === "state_licenses" && !licenseState)
+            }
           >
             {createMutation.isPending && <Loader2 className="mr-2 size-4 animate-spin" />}
             Create Workflow
