@@ -38,6 +38,10 @@ const isLikelyUuid = (value: string) =>
 type AppRole = "user" | "admin" | "superadmin";
 
 type BreadcrumbLabels = Partial<Record<"facilities" | "providers", string>>;
+type EntityRouteRoot = keyof BreadcrumbLabels;
+
+const isEntityRouteRoot = (value: string | undefined): value is EntityRouteRoot =>
+  value === "facilities" || value === "providers";
 
 export function Header({
   user,
@@ -52,15 +56,60 @@ export function Header({
 
   const pathname = usePathname();
   const segments = useMemo(() => pathname.split("/").filter(Boolean), [pathname]);
+  const [resolvedEntityLabel, setResolvedEntityLabel] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    const routeRoot = segments[0];
+    const entityId = segments[1];
+
+    if (!isEntityRouteRoot(routeRoot) || !entityId || !isLikelyUuid(entityId)) {
+      setResolvedEntityLabel(null);
+      return;
+    }
+
+    const providedLabel = breadcrumbLabels?.[routeRoot];
+    if (providedLabel) {
+      setResolvedEntityLabel(providedLabel);
+      return;
+    }
+
+    setResolvedEntityLabel(null);
+
+    const abortController = new AbortController();
+
+    void fetch(`/api/${routeRoot}/${entityId}/breadcrumb`, {
+      cache: "no-store",
+      signal: abortController.signal,
+    })
+      .then(async (response) => {
+        if (!response.ok) {
+          throw new Error(`Failed to load breadcrumb label for ${routeRoot}`);
+        }
+
+        const data = (await response.json()) as { label?: string };
+        const label = data.label?.trim();
+        const normalizedLabel = label === "" ? undefined : label;
+        setResolvedEntityLabel(normalizedLabel ?? null);
+      })
+      .catch(() => {
+        if (!abortController.signal.aborted) {
+          setResolvedEntityLabel(null);
+        }
+      });
+
+    return () => {
+      abortController.abort();
+    };
+  }, [breadcrumbLabels, segments]);
 
   const breadcrumbItems = segments.map((segment, index) => {
     const routeRoot = segments[0];
     const isEntityProfileSegment = index === 1 && isLikelyUuid(segment);
     const entityLabel =
       routeRoot === "providers"
-        ? breadcrumbLabels?.providers ?? "Provider Profile"
+        ? resolvedEntityLabel ?? breadcrumbLabels?.providers ?? "Provider Profile"
         : routeRoot === "facilities"
-          ? breadcrumbLabels?.facilities ?? "Facility Profile"
+          ? resolvedEntityLabel ?? breadcrumbLabels?.facilities ?? "Facility Profile"
           : formatSegmentLabel(segment);
 
     const label = isEntityProfileSegment ? entityLabel : formatSegmentLabel(segment);
