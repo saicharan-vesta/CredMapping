@@ -1386,7 +1386,7 @@ function AddWorkflowDialog() {
       }}
     >
       <DialogTrigger asChild>
-        <Button className="h-10 gap-2">
+        <Button className="relative -top-px h-9 gap-2">
           <Plus className="size-4" /> Add Workflow
         </Button>
       </DialogTrigger>
