@@ -114,6 +114,9 @@ const viewButtons: Array<{ key: ViewKey; label: string }> = [
   { key: "providerLicense", label: "Provider-Level State Licenses" },
   { key: "providerVestaPrivileges", label: "Provider Vesta Privileges" },
 ];
+const DEFAULT_VIEW: ViewKey = "providerFacility";
+const DEFAULT_GROUP_SORT_FIELD: GroupSortField = "name";
+const DEFAULT_GROUP_SORT_DIRECTION: SortDirection = "asc";
 
 const normalize = (value: string | null | undefined) => (value ?? "").trim().toLowerCase();
 const PRIORITY_ORDER = ["superstat", "stat", "top", "high", "medium"] as const;
@@ -203,6 +206,13 @@ function rowsMatchSearch(rows: ProviderFacilityRow[] | FacilityPreliveRow[] | Pr
   });
 }
 
+const defaultDetailSortFieldForView = (view: ViewKey): DetailSortField | null => {
+  if (view === "providerFacility") return "facility";
+  if (view === "facilityProvider" || view === "providerVestaPrivileges") return "provider";
+  if (view === "providerLicense") return "state";
+  return null;
+};
+
 function SortableHeader({ label, field, activeField, direction, onSort, centered = false }: { label: string; field: DetailSortField; activeField: DetailSortField | null; direction: SortDirection; onSort: (field: DetailSortField) => void; centered?: boolean }) {
   const isActive = field === activeField;
   return (
@@ -216,7 +226,7 @@ function SortableHeader({ label, field, activeField, direction, onSort, centered
 }
 
 export function DashboardClient({ providerFacilityRows, facilityPreliveRows, providerLicenseRows, providerVestaPrivilegesRows }: DashboardClientProps) {
-  const [view, setView] = useState<ViewKey>("providerFacility");
+  const [view, setView] = useState<ViewKey>(DEFAULT_VIEW);
   const [leftSearch, setLeftSearch] = useState("");
   const [rightSearch, setRightSearch] = useState("");
   const [priorityFilter, setPriorityFilter] = useState("all");
@@ -229,9 +239,9 @@ export function DashboardClient({ providerFacilityRows, facilityPreliveRows, pro
   const [licensePathFilter, setLicensePathFilter] = useState("all");
   const [licenseCycleFilter, setLicenseCycleFilter] = useState("all");
   const [privilegeTierFilter, setPrivilegeTierFilter] = useState("all");
-  const [groupSortField, setGroupSortField] = useState<GroupSortField>("updated");
-  const [groupSortDirection, setGroupSortDirection] = useState<SortDirection>("desc");
-  const [detailSortField, setDetailSortField] = useState<DetailSortField | null>(null);
+  const [groupSortField, setGroupSortField] = useState<GroupSortField>(DEFAULT_GROUP_SORT_FIELD);
+  const [groupSortDirection, setGroupSortDirection] = useState<SortDirection>(DEFAULT_GROUP_SORT_DIRECTION);
+  const [detailSortField, setDetailSortField] = useState<DetailSortField | null>(() => defaultDetailSortFieldForView(DEFAULT_VIEW));
   const [detailSortDirection, setDetailSortDirection] = useState<SortDirection>("asc");
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
 
@@ -460,9 +470,9 @@ export function DashboardClient({ providerFacilityRows, facilityPreliveRows, pro
     setLicensePathFilter("all");
     setLicenseCycleFilter("all");
     setPrivilegeTierFilter("all");
-    setGroupSortField("updated");
-    setGroupSortDirection("desc");
-    setDetailSortField(null);
+    setGroupSortField(DEFAULT_GROUP_SORT_FIELD);
+    setGroupSortDirection(DEFAULT_GROUP_SORT_DIRECTION);
+    setDetailSortField(defaultDetailSortFieldForView(view));
     setDetailSortDirection("asc");
   };
 
@@ -482,7 +492,8 @@ export function DashboardClient({ providerFacilityRows, facilityPreliveRows, pro
                   setSelectedKey(null);
                   setLeftSearch("");
                   setRightSearch("");
-                  setDetailSortField(null);
+                  setDetailSortField(defaultDetailSortFieldForView(button.key));
+                  setDetailSortDirection("asc");
                 }}
               >
                 {button.label}
