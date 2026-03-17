@@ -7,6 +7,7 @@ export const env = createEnv({
     NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
     DATABASE_URL: z.string().min(1),
     DATABASE_POOLER_URL: z.string().min(1).optional(),
+    N8N_INCIDENT_WEBHOOK_URL: z.string().url().optional(),
   },
   client: {
     NEXT_PUBLIC_SUPABASE_URL: z.string().url(),
@@ -16,6 +17,7 @@ export const env = createEnv({
     NODE_ENV: process.env.NODE_ENV,
     DATABASE_URL: process.env.DATABASE_URL,
     DATABASE_POOLER_URL: process.env.DATABASE_POOLER_URL,
+    N8N_INCIDENT_WEBHOOK_URL: process.env.N8N_INCIDENT_WEBHOOK_URL,
     NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
     NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
   },

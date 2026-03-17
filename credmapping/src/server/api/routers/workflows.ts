@@ -21,8 +21,26 @@ type ParentRecordData =
   | InferSelectModel<typeof facilityPreliveInfo>
   | InferSelectModel<typeof providerVestaPrivileges>;
 
+import { env } from "~/env";
+
 const toNull = (v: string | undefined | null) =>
   v === undefined || v === null || v.trim() === "" ? null : v.trim();
+
+/** Fire-and-forget POST to the n8n incident escalation webhook. */
+async function notifyIncidentWebhook(incidentIds: string[]) {
+  const url = env.N8N_INCIDENT_WEBHOOK_URL;
+  if (!url || incidentIds.length === 0) return;
+
+  try {
+    await fetch(url as string, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ incidentIds }),
+    });
+  } catch (err) {
+    console.error("[webhook] Failed to notify n8n:", err);
+  }
+}
 
 // ────────────────────────────────────────────────────────────────
 // Workflows Router
@@ -775,7 +793,64 @@ export const workflowsRouter = createTRPCRouter({
         newData: created as unknown as Record<string, unknown>,
       });
 
+      void notifyIncidentWebhook([created!.id]);
+
       return created;
+    }),
+
+  createBulkIncidents: protectedProcedure
+    .input(
+      z.object({
+        incidents: z
+          .array(
+            z.object({
+              workflowId: z.string().uuid(),
+              subcategory: z.string().min(1, "Subcategory is required."),
+              critical: z.boolean(),
+              dateIdentified: z.string().min(1, "Date is required."),
+              incidentDescription: z.string().optional(),
+              immediateResolutionAttempt: z.string().optional(),
+              escalatedTo: z.string().uuid(),
+            }),
+          )
+          .min(1, "At least one incident is required."),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const actor = await resolveAgentId(ctx.db, ctx.user.id);
+      if (!actor) throw new Error("Agent record not found for current user.");
+
+      const results = [];
+      for (const inc of input.incidents) {
+        const [created] = await ctx.db
+          .insert(incidentLogs)
+          .values({
+            workflowID: inc.workflowId,
+            whoReported: actor.id,
+            escalatedTo: inc.escalatedTo,
+            subcategory: inc.subcategory,
+            critical: inc.critical,
+            dateIdentified: inc.dateIdentified,
+            incidentDescription: toNull(inc.incidentDescription),
+            immediateResolutionAttempt: toNull(inc.immediateResolutionAttempt),
+          })
+          .returning();
+
+        await writeAuditLog(ctx.db, {
+          tableName: "incident_logs",
+          recordId: created!.id,
+          action: "create",
+          actorId: actor.id,
+          actorEmail: actor.email,
+          newData: created as unknown as Record<string, unknown>,
+        });
+
+        results.push(created!.id);
+      }
+
+      void notifyIncidentWebhook(results);
+
+      return { ids: results };
     }),
 
   updateIncident: protectedProcedure
