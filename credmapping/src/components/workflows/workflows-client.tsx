@@ -687,6 +687,343 @@ function DeleteIncidentDialog({
   );
 }
 
+/* ─── Bulk Incident Dialog (multi-phase, independent forms) ── */
+
+type BulkPhaseForm = {
+  phaseId: string;
+  phaseName: string;
+  subcategory: string;
+  critical: boolean;
+  dateIdentified: string;
+  description: string;
+  immediateResolution: string;
+  escalatedTo: string;
+};
+
+function emptyPhaseForm(phase: { id: string; phaseName: string }): BulkPhaseForm {
+  return {
+    phaseId: phase.id,
+    phaseName: phase.phaseName,
+    subcategory: "",
+    critical: false,
+    dateIdentified: "",
+    description: "",
+    immediateResolution: "",
+    escalatedTo: "",
+  };
+}
+
+function BulkIncidentDialog({
+  phases,
+  agents,
+  onSuccess,
+}: {
+  phases: { id: string; phaseName: string }[];
+  agents: { id: string; name: string; email: string }[];
+  onSuccess: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  // Step 0 = phase selection, step 1 = per-phase forms
+  const [step, setStep] = useState<0 | 1>(0);
+  const [selectedPhaseIds, setSelectedPhaseIds] = useState<Set<string>>(new Set());
+  const [phaseForms, setPhaseForms] = useState<BulkPhaseForm[]>([]);
+  const [activePhaseIdx, setActivePhaseIdx] = useState(0);
+
+  const createBulkMutation = api.workflows.createBulkIncidents.useMutation({
+    onSuccess: () => {
+      toast.success(`Incident logged for ${phaseForms.length} phase${phaseForms.length !== 1 ? "s" : ""}.`);
+      setOpen(false);
+      onSuccess();
+    },
+    onError: (e) => toast.error(String(e.message)),
+  });
+
+  function reset() {
+    setStep(0);
+    setSelectedPhaseIds(new Set());
+    setPhaseForms([]);
+    setActivePhaseIdx(0);
+  }
+
+  function togglePhase(id: string) {
+    setSelectedPhaseIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleAll() {
+    if (selectedPhaseIds.size === phases.length) {
+      setSelectedPhaseIds(new Set());
+    } else {
+      setSelectedPhaseIds(new Set(phases.map((p) => p.id)));
+    }
+  }
+
+  function proceedToForms() {
+    if (selectedPhaseIds.size === 0) {
+      toast.error("Select at least one phase.");
+      return;
+    }
+    const selected = phases.filter((p) => selectedPhaseIds.has(p.id));
+    setPhaseForms(selected.map(emptyPhaseForm));
+    setActivePhaseIdx(0);
+    setStep(1);
+  }
+
+  function updateForm(idx: number, patch: Partial<BulkPhaseForm>) {
+    setPhaseForms((prev) =>
+      prev.map((f, i) => (i === idx ? { ...f, ...patch } : f)),
+    );
+  }
+
+  function validateForm(form: BulkPhaseForm): string | null {
+    if (!form.subcategory.trim()) return `"${form.phaseName}" – Subcategory is required.`;
+    if (!form.dateIdentified) return `"${form.phaseName}" – Date identified is required.`;
+    if (!form.escalatedTo) return `"${form.phaseName}" – Escalated To is required.`;
+    return null;
+  }
+
+  function handleSubmit() {
+    for (const form of phaseForms) {
+      const err = validateForm(form);
+      if (err) {
+        toast.error(err);
+        const errIdx = phaseForms.indexOf(form);
+        if (errIdx !== -1) setActivePhaseIdx(errIdx);
+        return;
+      }
+    }
+
+    createBulkMutation.mutate({
+      incidents: phaseForms.map((f) => ({
+        workflowId: f.phaseId,
+        subcategory: f.subcategory.trim(),
+        critical: f.critical,
+        dateIdentified: f.dateIdentified,
+        incidentDescription: f.description || undefined,
+        immediateResolutionAttempt: f.immediateResolution || undefined,
+        escalatedTo: f.escalatedTo,
+      })),
+    });
+  }
+
+  const activeForm = phaseForms[activePhaseIdx];
+
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        setOpen(next);
+        if (next) reset();
+      }}
+    >
+      <DialogTrigger asChild>
+        <Button size="sm" variant="outline" className="gap-1.5">
+          <AlertTriangle className="size-3.5" /> Bulk Log Incident
+        </Button>
+      </DialogTrigger>
+
+      <ModalContent className="max-h-[85vh] overflow-y-auto sm:max-w-xl">
+        <ModalHeader>
+          <ModalTitle>
+            {step === 0 ? "Select Phases" : "Log Incidents"}
+          </ModalTitle>
+        </ModalHeader>
+
+        {step === 0 ? (
+          /* ── Step 0: Phase selection ── */
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label className="text-sm font-medium">Select Phases *</Label>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  className="h-6 px-2 text-xs"
+                  onClick={toggleAll}
+                >
+                  {selectedPhaseIds.size === phases.length ? "Deselect All" : "Select All"}
+                </Button>
+              </div>
+              <div className="max-h-48 space-y-1 overflow-y-auto rounded-md border p-2">
+                {phases.map((phase) => (
+                  <label
+                    key={phase.id}
+                    className={cn(
+                      "flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors",
+                      selectedPhaseIds.has(phase.id)
+                        ? "bg-primary/10 font-medium"
+                        : "hover:bg-muted/50",
+                    )}
+                  >
+                    <Checkbox
+                      checked={selectedPhaseIds.has(phase.id)}
+                      onCheckedChange={() => togglePhase(phase.id)}
+                    />
+                    {phase.phaseName}
+                  </label>
+                ))}
+              </div>
+              <p className="text-muted-foreground text-xs">
+                {selectedPhaseIds.size} of {phases.length} phase{phases.length !== 1 ? "s" : ""} selected
+              </p>
+            </div>
+
+            <ModalFooter>
+              <DialogClose asChild>
+                <Button variant="outline">Cancel</Button>
+              </DialogClose>
+              <Button onClick={proceedToForms}>
+                Continue
+              </Button>
+            </ModalFooter>
+          </div>
+        ) : (
+          /* ── Step 1: Per-phase independent forms ── */
+          <div className="space-y-4 py-2">
+            {/* Phase tabs */}
+            <div className="flex gap-1 overflow-x-auto rounded-md border p-1">
+              {phaseForms.map((f, idx) => {
+                const hasError = !!validateForm(f);
+                const isFilled = !hasError;
+                return (
+                  <button
+                    key={f.phaseId}
+                    type="button"
+                    onClick={() => setActivePhaseIdx(idx)}
+                    className={cn(
+                      "relative shrink-0 rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
+                      idx === activePhaseIdx
+                        ? "bg-primary text-primary-foreground"
+                        : "hover:bg-muted text-muted-foreground",
+                    )}
+                  >
+                    {f.phaseName}
+                    {isFilled && idx !== activePhaseIdx && (
+                      <CheckCircle2 className="ml-1 inline size-3 text-emerald-500" />
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Active phase form */}
+            {activeForm && (
+              <div className="space-y-3 rounded-md border p-3">
+                <p className="text-sm font-semibold">{activeForm.phaseName}</p>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="col-span-2 space-y-1.5">
+                    <Label>Subcategory *</Label>
+                    <Input
+                      value={activeForm.subcategory}
+                      onChange={(e) => updateForm(activePhaseIdx, { subcategory: e.target.value })}
+                      placeholder="e.g. Missing Documentation"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Date Identified *</Label>
+                    <Input
+                      type="date"
+                      value={activeForm.dateIdentified}
+                      onChange={(e) => updateForm(activePhaseIdx, { dateIdentified: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Escalated To *</Label>
+                    <Select
+                      value={activeForm.escalatedTo}
+                      onValueChange={(v) => updateForm(activePhaseIdx, { escalatedTo: v })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select agent…" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {agents.map((a) => (
+                          <SelectItem key={a.id} value={a.id}>
+                            {a.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="col-span-2 flex items-center gap-2 pt-1">
+                    <Checkbox
+                      id={`bulk-critical-${activeForm.phaseId}`}
+                      checked={activeForm.critical}
+                      onCheckedChange={(v) => updateForm(activePhaseIdx, { critical: v === true })}
+                    />
+                    <Label htmlFor={`bulk-critical-${activeForm.phaseId}`} className="font-normal">
+                      Critical Incident
+                    </Label>
+                  </div>
+
+                  <div className="col-span-2 space-y-1.5">
+                    <Label>Description</Label>
+                    <Textarea
+                      rows={2}
+                      value={activeForm.description}
+                      onChange={(e) => updateForm(activePhaseIdx, { description: e.target.value })}
+                    />
+                  </div>
+
+                  <div className="col-span-2 space-y-1.5">
+                    <Label>Immediate Resolution Attempt</Label>
+                    <Textarea
+                      rows={2}
+                      value={activeForm.immediateResolution}
+                      onChange={(e) => updateForm(activePhaseIdx, { immediateResolution: e.target.value })}
+                    />
+                  </div>
+                </div>
+
+                {/* Prev / Next within phases */}
+                <div className="flex items-center justify-between pt-1">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    disabled={activePhaseIdx === 0}
+                    onClick={() => setActivePhaseIdx((i) => i - 1)}
+                  >
+                    ← Prev Phase
+                  </Button>
+                  <span className="text-muted-foreground text-xs">
+                    {activePhaseIdx + 1} / {phaseForms.length}
+                  </span>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    disabled={activePhaseIdx === phaseForms.length - 1}
+                    onClick={() => setActivePhaseIdx((i) => i + 1)}
+                  >
+                    Next Phase →
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            <ModalFooter>
+              <Button variant="outline" onClick={() => setStep(0)}>
+                ← Back
+              </Button>
+              <Button onClick={handleSubmit} disabled={createBulkMutation.isPending}>
+                {createBulkMutation.isPending && <Loader2 className="mr-2 size-4 animate-spin" />}
+                Log {phaseForms.length} Incident{phaseForms.length !== 1 ? "s" : ""}
+              </Button>
+            </ModalFooter>
+          </div>
+        )}
+      </ModalContent>
+    </Dialog>
+  );
+}
+
 /* ─── Workflow Detail Sheet ──────────────────────────────── */
 
 function WorkflowDetailSheet({
@@ -2462,6 +2799,16 @@ export default function WorkflowsClient() {
 
                 {isExpanded && (
                   <div className="border-t px-4 py-3">
+                    <div className="mb-2 flex items-center justify-end">
+                      <BulkIncidentDialog
+                        phases={group.phases.map((p) => ({
+                          id: String(p.id),
+                          phaseName: String(p.phaseName),
+                        }))}
+                        agents={agentList}
+                        onSuccess={() => void utils.workflows.list.invalidate()}
+                      />
+                    </div>
                     <Table className="[&_td]:py-3 [&_td:first-child]:pl-0 [&_td:last-child]:pr-0 [&_th]:py-3 [&_th:first-child]:pl-0 [&_th:last-child]:pr-0">
                       <TableHeader>
                         <TableRow>
