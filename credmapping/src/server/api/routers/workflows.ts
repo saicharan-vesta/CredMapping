@@ -30,9 +30,9 @@ const toNull = (v: string | undefined | null) =>
 async function notifyIncidentWebhook(incidentIds: string[]) {
   const url = env.N8N_INCIDENT_WEBHOOK_URL;
   if (!url || incidentIds.length === 0) return;
-
+// Removed string type assertion on body since it's already a string after JSON.stringify
   try {
-    await fetch(url as string, {
+    await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ incidentIds }),
